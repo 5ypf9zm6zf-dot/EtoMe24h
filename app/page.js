@@ -45,7 +45,7 @@ export default function Home() {
       <p style={{ fontSize: 21, color: '#c9c9c9', maxWidth: 650, lineHeight: 1.5 }}>Rušenja, šut, čišćenje, dvorišta, brodovi, pranje i selidbe. Jedan poziv i krećemo.</p>
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginTop: 26 }}>
         <a href="tel:+385981947591" style={{ background: '#ffd400', color: '#111', textDecoration: 'none', padding: '15px 22px', borderRadius: 12, fontWeight: 950 }}>POZOVI ETO.ME →</a>
-        <button onClick={() => setOpen(true)} style={{ background: '#fff', color: '#111', border: 0, padding: '15px 22px', borderRadius: 12, fontWeight: 900, cursor: 'pointer' }}>🤖 PITAJ ETO.ME AI</button>
+        <a href="https://etome.app/register" target="_blank" rel="noopener noreferrer" style={{ background: '#fff', color: '#111', textDecoration: 'none', padding: '15px 22px', borderRadius: 12, fontWeight: 900 }}>📱 ETO.ME APP →</a>
       </div>
     </section>
     <section style={{ maxWidth: 1100, margin: '0 auto', padding: '15px 20px 70px' }}>
