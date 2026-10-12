@@ -1,12 +1,17 @@
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://etome24.hr'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.etome24.hr'),
   title: 'EtoMe24h | Tu smo kad treba',
   description: 'EtoMe24h – rušenja, šut, čišćenje, dvorišta, brodovi, pranje i selidbe u Splitu i Dalmaciji.',
+  alternates: {
+    canonical: 'https://www.etome24.hr/',
+  },
   openGraph: {
     title: 'EtoMe24h | Tu smo kad treba',
     description: 'EtoMe24h – usluge u Splitu i Dalmaciji.',
     type: 'website',
-    url: 'https://etome24.hr',
+    url: 'https://www.etome24.hr/',
+    siteName: 'EtoMe24h',
+    locale: 'hr_HR',
   },
 };
 
