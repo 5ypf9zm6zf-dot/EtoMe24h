@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-labelledby="title">
+<title id="title">Dvorište — stabla i uredan travnjak</title>
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#202b25"/><stop offset="1" stop-color="#090909"/></linearGradient></defs>
+<rect width="900" height="600" rx="28" fill="url(#bg)"/><rect x="12" y="12" width="876" height="576" rx="24" fill="none" stroke="#ffd400" stroke-width="8"/>
+<circle cx="720" cy="125" r="52" fill="#ffd400"/><path d="M55 400L225 250 365 370 510 220 700 370 845 265V455H55Z" fill="#1b3928"/><path d="M55 420Q250 360 430 425T845 410V465H55Z" fill="#2e5738"/>
+<g stroke="#ffd400" stroke-width="9" stroke-linejoin="round" fill="#315f3d"><path d="M235 395V245"/><circle cx="235" cy="220" r="67"/><circle cx="185" cy="250" r="45"/><circle cx="285" cy="250" r="45"/><path d="M445 405V300"/><circle cx="445" cy="278" r="52"/><circle cx="408" cy="300" r="34"/><circle cx="482" cy="300" r="34"/></g>
+<path d="M105 445Q260 420 415 445T790 440" fill="none" stroke="#6f9a57" stroke-width="8" stroke-linecap="round"/><path d="M625 375l35-20 30 18-10 28-42 2Z" fill="#ffd400"/><path d="M652 397v35" stroke="#ffd400" stroke-width="8"/>
+<text x="48" y="535" fill="#ffd400" font-family="Arial,sans-serif" font-size="48" font-weight="900" letter-spacing="2">DVORIŠTE</text>
+</svg>

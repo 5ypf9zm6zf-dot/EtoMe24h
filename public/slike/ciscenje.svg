@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-labelledby="title">
+<title id="title">Čišćenje — čista površina i bljeskovi</title>
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#242424"/><stop offset="1" stop-color="#090909"/></linearGradient></defs>
+<rect width="900" height="600" rx="28" fill="url(#bg)"/><rect x="12" y="12" width="876" height="576" rx="24" fill="none" stroke="#ffd400" stroke-width="8"/>
+<rect x="110" y="110" width="680" height="325" rx="18" fill="#171717" stroke="#626262" stroke-width="8"/><path d="M145 145H755V400H145Z" fill="#202020" stroke="#ffd400" stroke-width="5"/><path d="M450 148V398M148 274H752" stroke="#4a4a4a" stroke-width="6"/>
+<g stroke="#ffd400" stroke-linecap="round" stroke-linejoin="round"><path d="M260 175l16 42 42 16-42 16-16 42-16-42-42-16 42-16Z" fill="#ffd400" stroke-width="5"/><path d="M635 165l12 32 32 12-32 12-12 32-12-32-32-12 32-12Z" fill="#ffd400" stroke-width="5"/><path d="M595 300l-45 95" stroke-width="18"/><path d="M530 390l47 23 28-25-7-28-46-18Z" fill="#ffd400" stroke-width="8"/><path d="M620 355l36 17 17-19" fill="none" stroke="#aaa" stroke-width="8"/></g>
+<path d="M185 365l70-25 65 18" fill="none" stroke="#777" stroke-width="7" stroke-linecap="round"/>
+<text x="48" y="535" fill="#ffd400" font-family="Arial,sans-serif" font-size="48" font-weight="900" letter-spacing="2">ČIŠĆENJE</text>
+</svg>

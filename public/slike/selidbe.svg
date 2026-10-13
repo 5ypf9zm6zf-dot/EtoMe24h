@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 600" role="img" aria-labelledby="title">
+<title id="title">Selidbe — kutije i ručni transport</title>
+<defs><linearGradient id="bg" x2="0" y2="1"><stop stop-color="#242424"/><stop offset="1" stop-color="#090909"/></linearGradient></defs>
+<rect width="900" height="600" rx="28" fill="url(#bg)"/><rect x="12" y="12" width="876" height="576" rx="24" fill="none" stroke="#ffd400" stroke-width="8"/>
+<path d="M55 445H845" stroke="#4a4a4a" stroke-width="12" stroke-linecap="round"/>
+<g stroke="#ffd400" stroke-width="8" stroke-linejoin="round"><path d="M135 245l125-62 125 62v170l-125 62-125-62Z" fill="#80501e"/><path d="M260 183v172M135 245l125 65 125-65M260 310v167" fill="none"/><path d="M430 300l105-52 105 52v130l-105 52-105-52Z" fill="#6c461f"/><path d="M535 248v132M430 300l105 58 105-58M535 358v124" fill="none"/><path d="M230 185l30-15 30 15-30 18Z" fill="#ffd400"/><path d="M505 250l30-15 30 15-30 18Z" fill="#ffd400"/></g>
+<path d="M700 210h55v220h-55z" fill="#ffd400"/><path d="M685 210h85l-15-27h-55z" fill="#eee"/><path d="M680 430h95" stroke="#aaa" stroke-width="8" stroke-linecap="round"/>
+<text x="48" y="535" fill="#ffd400" font-family="Arial,sans-serif" font-size="48" font-weight="900" letter-spacing="2">SELIDBE</text>
+</svg>
