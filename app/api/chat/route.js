@@ -153,6 +153,13 @@ export async function POST(request) {
     return jsonError('Pošalji poruku pa pokušaj ponovno.', 400);
   }
 
+  const hasOversizedMessage = messages.some(
+    (message) => typeof message?.content === 'string' && message.content.length > MAX_MESSAGE_LENGTH
+  );
+  if (hasOversizedMessage) {
+    return jsonError('Poruka je preduga. Skrati je pa pokušaj ponovno.', 400);
+  }
+
   const safeMessages = messages
     .filter((message) =>
       (message?.role === 'user' || message?.role === 'assistant') &&
@@ -160,7 +167,7 @@ export async function POST(request) {
     )
     .map((message) => ({
       role: message.role,
-      content: message.content.trim().slice(0, MAX_MESSAGE_LENGTH),
+      content: message.content.trim(),
     }))
     .filter((message) => message.content.length > 0);
 
