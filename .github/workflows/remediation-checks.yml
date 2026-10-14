@@ -31,11 +31,10 @@ jobs:
           ref: audit/remediation-2026-10
           persist-credentials: true
 
-      - name: Set up Node.js 22 with npm cache
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
 
       - name: Generate deterministic lockfile from pinned direct dependencies
         run: npm install --package-lock-only --ignore-scripts
