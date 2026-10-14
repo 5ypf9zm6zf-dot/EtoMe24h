@@ -58,15 +58,15 @@ async function readJsonWithLimit(request) {
 }
 
 function getClientIp(request) {
-  const direct = request.headers.get('x-real-ip')?.trim();
-  if (direct) return direct.slice(0, 128);
+  // Prefer Vercel's single-value client IP header.
+  const vercelIp = request.headers.get('x-vercel-forwarded-for')?.trim();
+  if (vercelIp) return vercelIp.slice(0, 128);
 
-  // Vercel sets the forwarded client address; use the final entry to avoid
-  // trusting a caller-supplied first entry in a comma-separated chain.
+  // Vercel sanitizes X-Forwarded-For; its leftmost entry is the client IP.
   const forwarded = request.headers.get('x-forwarded-for');
   if (!forwarded) return null;
   const entries = forwarded.split(',').map((part) => part.trim()).filter(Boolean);
-  return entries.length ? entries[entries.length - 1].slice(0, 128) : null;
+  return entries.length ? entries[0].slice(0, 128) : null;
 }
 
 async function enforceSharedRateLimit(request) {
