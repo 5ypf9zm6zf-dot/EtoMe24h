@@ -1,0 +1,43 @@
+name: Remediation branch checks
+
+on:
+  push:
+    branches:
+      - audit/remediation-2026-10
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "app/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/remediation-checks.yml"
+
+concurrency:
+  group: etome-remediation-checks-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  lockfile-and-checks:
+    if: github.event_name == 'push' || github.event.pull_request.head.ref == 'audit/remediation-2026-10'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout remediation branch
+        uses: actions/checkout@v4
+        with:
+          ref: audit/remediation-2026-10
+          persist-credentials: true
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install exactly from lockfile
+        run: npm ci
+
+      - name: Run npm security audit
+        run: npm audit --audit-level=high
+
+      - name: Build production bundle
+        run: npm run build
