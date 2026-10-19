@@ -1,5 +1,5 @@
 export default function sitemap() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://etome24h.vercel.app';
+  const baseUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.etome24.hr').replace(/\/$/, '');
 
   return [
     {
