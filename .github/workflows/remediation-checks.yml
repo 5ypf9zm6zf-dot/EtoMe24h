@@ -9,9 +9,13 @@ on:
       - main
     paths:
       - "app/**"
+      - "public/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/remediation-checks.yml"
+
+permissions:
+  contents: read
 
 concurrency:
   group: etome-remediation-checks-${{ github.ref }}
@@ -22,11 +26,11 @@ jobs:
     if: github.event_name == 'push' || github.event.pull_request.head.ref == 'audit/remediation-2026-10'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout remediation branch
+      - name: Checkout the commit being checked
         uses: actions/checkout@v4
         with:
-          ref: audit/remediation-2026-10
-          persist-credentials: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
