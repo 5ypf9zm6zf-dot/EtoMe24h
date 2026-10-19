@@ -3,10 +3,28 @@ import { NextResponse } from 'next/server';
 
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 2000;
+const MAX_REQUEST_BYTES = 64 * 1024;
 
 export async function POST(request) {
   try {
-    const body = await request.json();
+    const contentLength = Number(request.headers.get('content-length') || 0);
+    if (contentLength > MAX_REQUEST_BYTES) {
+      return NextResponse.json(
+        { reply: 'Poruka je prevelika. Skrati je pa pokušaj ponovno.' },
+        { status: 413 }
+      );
+    }
+
+    let body;
+    try {
+      body = await request.json();
+    } catch {
+      return NextResponse.json(
+        { reply: 'Poruka nije ispravna. Pokušaj ponovno.' },
+        { status: 400 }
+      );
+    }
+
     const messages = Array.isArray(body?.messages) ? body.messages : [];
 
     if (messages.length === 0 || messages.length > MAX_MESSAGES) {
@@ -24,8 +42,9 @@ export async function POST(request) {
     }
 
     if (!process.env.OPENAI_API_KEY) {
+      console.error('EtoMe AI unavailable: OPENAI_API_KEY is not configured.');
       return NextResponse.json(
-        { reply: 'AI nije još spojen — dodaj OPENAI_API_KEY u Vercel Environment Variables.' },
+        { reply: 'AI trenutno nije dostupan. Nazovi nas na 098 1947 591 ili nam pošalji WhatsApp poruku.' },
         { status: 503 }
       );
     }
@@ -36,6 +55,7 @@ export async function POST(request) {
       instructions:
         'Ti si EtoMe AI asistent. Odgovaraj na hrvatskom, jasno, kratko i korisno. Pomaži korisnicima oko EtoMe usluga i općih pitanja. Ne izmišljaj cijene, termine ili dostupnost.',
       input: safeMessages,
+      max_output_tokens: 400,
     });
 
     return NextResponse.json({
