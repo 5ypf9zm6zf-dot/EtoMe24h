@@ -1,4 +1,5 @@
 import OpenAI from 'openai';
+import { getToken } from '@vercel/connect';
 import { NextResponse } from 'next/server';
 
 const MAX_MESSAGES = 20;
@@ -23,14 +24,19 @@ export async function POST(request) {
       return NextResponse.json({ reply: 'Nisam dobio valjanu poruku.' }, { status: 400 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
+    // Vercel Connect resolves the secret at runtime; never expose it to the browser.
+    const apiKey = await getToken('gpt/rose-ladder', {
+      subject: { type: 'app' },
+    });
+
+    if (!apiKey) {
       return NextResponse.json(
-        { reply: 'AI nije još spojen — dodaj OPENAI_API_KEY u Vercel Environment Variables.' },
+        { reply: 'AI ključ nije dostupan. Provjeri Vercel Connect vezu za ovaj projekt i okruženje.' },
         { status: 503 }
       );
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const client = new OpenAI({ apiKey });
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL || 'gpt-5-mini',
       instructions:
@@ -42,10 +48,11 @@ export async function POST(request) {
       reply: response.output_text || 'Trenutno nemam odgovor. Pokušaj ponovno.',
     });
   } catch (error) {
-    console.error('EtoMe AI error:', error);
+    // Do not log credentials or the token returned by Vercel Connect.
+    console.error('EtoMe AI error:', error?.name || 'UnknownError');
     return NextResponse.json(
-      { reply: 'Došlo je do greške. Pokušaj ponovno.' },
-      { status: 500 }
+      { reply: 'AI se trenutačno ne može spojiti. Provjeri Vercel Connect i pokušaj ponovno.' },
+      { status: 503 }
     );
   }
 }
