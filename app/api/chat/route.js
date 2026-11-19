@@ -41,15 +41,19 @@ export async function POST(request) {
       return NextResponse.json({ reply: 'Nisam dobio valjanu poruku.' }, { status: 400 });
     }
 
-    if (!process.env.OPENAI_API_KEY) {
-      console.error('EtoMe AI unavailable: OPENAI_API_KEY is not configured.');
+    // Vercel Preview currently stores the server-side key as `gpt5`.
+    // Keep OPENAI_API_KEY as the preferred conventional name, with a safe fallback.
+    const apiKey = process.env.OPENAI_API_KEY || process.env.gpt5;
+
+    if (!apiKey) {
+      console.error('EtoMe AI unavailable: OPENAI_API_KEY and gpt5 are not configured.');
       return NextResponse.json(
         { reply: 'AI trenutno nije dostupan. Nazovi nas na 098 1947 591 ili nam pošalji WhatsApp poruku.' },
         { status: 503 }
       );
     }
 
-    const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const client = new OpenAI({ apiKey });
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL || 'gpt-5-mini',
       instructions:
