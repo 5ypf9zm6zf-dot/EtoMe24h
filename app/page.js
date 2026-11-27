@@ -11,7 +11,7 @@ const CONTACT = {
 const categories = ['Sve', 'Rušenja', 'Šut & odvoz', 'Čišćenje', 'Dvorište', 'Brod & wash', 'Selidbe'];
 const services = [
   { title: 'Rušenja', description: 'Stanovi, kupaonice, zidovi i štemanje.', image: '/plakati/rusenje.jpeg', alt: 'Originalni EtoMe plakat: Rušenje' },
-  { title: 'Šut & odvoz', description: 'Odvoz šute i otpada – toboganom direkt u kombi.', image: '/slike/sut-odvoz.svg', alt: 'Ilustracija odvoza šute kombijem' },
+  { title: 'Šut & odvoz', description: 'Odvoz šute i otpada – toboganom direkt u kombi.', image: '/plakati/sut-odvoz.jpg', alt: 'Originalni EtoMe plakat: Šut i odvoz' },
   { title: 'Čišćenje', description: 'Stanovi i prostori spremni za majstore.', image: '/plakati/ciscenje.webp', alt: 'Originalni EtoMe plakat: Čišćenje' },
   { title: 'Dvorište', description: 'Košnja, krčenje, okućnice, maslinici i dvorišta.', image: '/plakati/dvoriste.jpeg', alt: 'Originalni EtoMe plakat: Dvorište' },
   { title: 'Brod & wash', description: 'Peremo brode, kamen, bazen i sve što trpi pranje.', image: '/plakati/pranje.webp', alt: 'Originalni EtoMe plakat: Pranje broda, kamena i bazena' },
