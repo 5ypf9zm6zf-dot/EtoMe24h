@@ -6,7 +6,7 @@ export const metadata = {
     title: 'EtoMe24h | Tu smo kad treba',
     description: 'EtoMe24h – usluge u Splitu i Dalmaciji.',
     type: 'website',
-    url: 'https://etome24.hr',
+    url: 'https://www.etome24.hr',
   },
 };
 
