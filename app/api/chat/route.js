@@ -170,8 +170,8 @@ export async function POST(request) {
       }))
       .filter((message) => message.content.length > 0);
 
-    if (safeMessages.length === 0) {
-      return NextResponse.json({ reply: 'Nisam dobio valjanu poruku.' }, { status: 400 });
+    if (safeMessages.length === 0 || !safeMessages.some((message) => message.role === 'user')) {
+      return NextResponse.json({ reply: 'Nisam dobio valjanu korisničku poruku.' }, { status: 400 });
     }
 
     const limit = await checkRateLimit(getClientKey(request));
