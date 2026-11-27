@@ -17,6 +17,13 @@ const services = [
   { title: 'Brod & wash', description: 'Peremo brode, kamen, bazen i sve što trpi pranje.', image: '/slike/brod-wash.svg', alt: 'Ilustracija broda na moru' },
   { title: 'Selidbe', description: 'Namještaj, stvari i odvoz bez filozofije.', image: '/slike/selidbe.svg', alt: 'Ilustracija kutija za selidbu' },
 ];
+const posters = [
+  { title: 'RUŠENJE', image: '/plakati/rusenje.jpeg', service: 'Rušenja' },
+  { title: 'ČIŠĆENJE', image: '/plakati/ciscenje.webp', service: 'Čišćenje' },
+  { title: 'SELIDBE', image: '/plakati/selidbe.jpeg', service: 'Selidbe' },
+  { title: 'PRANJE BRODA, KAMENA I BAZENA', image: '/plakati/pranje.webp', service: 'Brod & wash' },
+  { title: 'DVORIŠTE', image: '/plakati/dvoriste.jpeg', service: 'Dvorište' },
+];
 const actionStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 12, padding: '12px 14px', textDecoration: 'none', fontWeight: 900, textAlign: 'center' };
 
 export default function Home() {
@@ -68,6 +75,15 @@ export default function Home() {
           <a href={`tel:${CONTACT.phone}`} style={{ background: '#ffd400', color: '#111', textDecoration: 'none', padding: '15px 22px', borderRadius: 12, fontWeight: 950 }}>POZOVI ETO.ME →</a>
           <a href="https://etome.app/register" target="_blank" rel="noopener noreferrer" style={{ background: '#fff', color: '#111', textDecoration: 'none', padding: '15px 22px', borderRadius: 12, fontWeight: 900 }}>📱 ETO.ME APP →</a>
           <button type="button" onClick={() => setChatOpen(true)} style={{ background: '#202020', color: '#ffd400', border: '1px solid #ffd400', padding: '15px 22px', borderRadius: 12, fontWeight: 900, cursor: 'pointer' }}>🤖 PITAJ ETO.ME AI</button>
+        </div>
+      </section>
+      <section aria-labelledby="poster-services-title" style={{ maxWidth: 1100, margin: '0 auto', padding: '15px 20px 55px' }}>
+        <h2 id="poster-services-title" style={{ color: '#FFD600', fontSize: 30, margin: '0 0 22px', letterSpacing: -1 }}>NAŠE USLUGE</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 280px), 1fr))', gap: 24 }}>
+          {posters.map((poster) => <button key={poster.image} type="button" onClick={() => setSelectedService(services.find((service) => service.title === poster.service))} aria-label={`Otvori uslugu: ${poster.title}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', minWidth: 0, padding: 0, cursor: 'pointer', background: '#000', color: '#FFD600', border: '1px solid #FFD600', borderRadius: 16 }}>
+            <span style={{ display: 'flex', flex: 1, alignItems: 'center' }}><img src={poster.image} alt={`Originalni EtoMe plakat: ${poster.title}`} loading="lazy" style={{ display: 'block', width: '100%', height: 'auto', objectFit: 'contain' }} /></span>
+            <span style={{ display: 'block', padding: '16px 12px', fontSize: 17, fontWeight: 900, lineHeight: 1.4 }}>{poster.title}</span>
+          </button>)}
         </div>
       </section>
       <section style={{ maxWidth: 1100, margin: '0 auto', padding: '15px 20px 70px' }}>
