@@ -1,5 +1,8 @@
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://www.etome24.hr'),
+  metadataBase: new URL('https://www.etome24.hr'),
+  alternates: {
+    canonical: 'https://www.etome24.hr',
+  },
   title: 'EtoMe24h | Tu smo kad treba',
   description: 'EtoMe24h – rušenja, šut, čišćenje, dvorišta, brodovi, pranje i selidbe u Splitu i Dalmaciji.',
   openGraph: {
