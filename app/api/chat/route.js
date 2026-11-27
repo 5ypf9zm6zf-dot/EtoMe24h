@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import { isIP } from 'node:net';
 import OpenAI from 'openai';
 import { NextResponse } from 'next/server';
 
@@ -21,8 +22,14 @@ return { minuteCount, dayCount }
 const memoryBuckets = new Map();
 
 function getClientKey(request) {
+  // Vercel supplies x-real-ip from the edge. If unavailable, use the
+  // right-most address added by the nearest trusted proxy, never the left-most
+  // client-controlled X-Forwarded-For entry.
+  const realIp = request.headers.get('x-real-ip')?.trim();
   const forwarded = request.headers.get('x-forwarded-for');
-  const ip = request.headers.get('x-real-ip') || forwarded?.split(',')[0]?.trim() || 'unknown';
+  const forwardedCandidates = forwarded?.split(',').map((value) => value.trim()).filter(Boolean) || [];
+  const candidate = realIp || forwardedCandidates.at(-1) || '';
+  const ip = isIP(candidate) ? candidate : 'unknown';
   return createHash('sha256').update(ip).digest('hex');
 }
 
@@ -46,6 +53,10 @@ function checkMemoryLimit(clientKey, now) {
       ) {
         memoryBuckets.delete(key);
       }
+    }
+    // Keep the fallback bounded even during a burst of unique client keys.
+    while (memoryBuckets.size > 5000) {
+      memoryBuckets.delete(memoryBuckets.keys().next().value);
     }
   }
 
