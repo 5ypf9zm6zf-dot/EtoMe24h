@@ -41,7 +41,8 @@ export default function Home() {
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
-    const next = [...messages, { role: 'user', content: text }];
+    // Keep the request inside the API's 20-message contract as a chat grows.
+    const next = [...messages, { role: 'user', content: text }].slice(-20);
     setMessages(next); setInput(''); setLoading(true);
     try {
       const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: next }) });
@@ -97,7 +98,7 @@ export default function Home() {
         <section role="dialog" aria-modal="true" aria-labelledby="chat-title" style={{ width: 'min(100%, 460px)', height: 'min(680px, 90vh)', background: '#fff', color: '#111', borderRadius: 20, boxShadow: '0 20px 70px rgba(0,0,0,.6)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <header style={{ background: '#111', color: '#ffd400', padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 950 }}><span id="chat-title">🤖 EtoMe AI · Tu smo 24 sata</span><button onClick={() => setChatOpen(false)} aria-label="Zatvori AI asistenta" style={{ background: 'none', color: '#fff', border: 0, fontSize: 26, cursor: 'pointer' }}>×</button></header>
           <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{messages.map((message, i) => <div key={i} style={{ margin: '8px 0', textAlign: message.role === 'user' ? 'right' : 'left' }}><span style={{ display: 'inline-block', maxWidth: '90%', padding: '10px 13px', borderRadius: 14, background: message.role === 'user' ? '#fff0a8' : '#eee', lineHeight: 1.5 }}>{message.content}</span></div>)}{loading && <div style={{ color: '#777', padding: 8 }}>EtoMe AI razmišlja…</div>}</div>
-          <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid #eee' }}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Napiši što ti treba…" aria-label="Poruka za EtoMe AI" style={{ minWidth: 0, flex: 1, border: '1px solid #ccc', borderRadius: 12, padding: 12, fontSize: 16 }} /><button type="submit" disabled={loading || !input.trim()} style={{ border: 0, borderRadius: 12, padding: '0 16px', background: '#ffd400', color: '#111', fontWeight: 900, cursor: loading ? 'wait' : 'pointer' }}>Pošalji</button></form>
+          <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid #eee' }}><input value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} placeholder="Napiši što ti treba…" aria-label="Poruka za EtoMe AI" style={{ minWidth: 0, flex: 1, border: '1px solid #ccc', borderRadius: 12, padding: 12, fontSize: 16 }} /><button type="submit" disabled={loading || !input.trim()} style={{ border: 0, borderRadius: 12, padding: '0 16px', background: '#ffd400', color: '#111', fontWeight: 900, cursor: loading ? 'wait' : 'pointer' }}>Pošalji</button></form>
         </section>
       </div>}
     </main>
