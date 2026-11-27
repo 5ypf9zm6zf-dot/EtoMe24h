@@ -40,7 +40,12 @@ function checkMemoryLimit(clientKey, now) {
   if (memoryBuckets.size > 5000) {
     for (const key of memoryBuckets.keys()) {
       const bucket = Number(key.slice(key.lastIndexOf(':') + 1));
-      if (!Number.isFinite(bucket) || bucket < dayBucket - 1) memoryBuckets.delete(key);
+      if (
+        (key.includes(':m:') && bucket < minuteBucket - 120) ||
+        (key.includes(':d:') && bucket < dayBucket - 2)
+      ) {
+        memoryBuckets.delete(key);
+      }
     }
   }
 
