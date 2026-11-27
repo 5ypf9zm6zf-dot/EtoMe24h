@@ -10,12 +10,12 @@ const CONTACT = {
 };
 const categories = ['Sve', 'Rušenja', 'Šut & odvoz', 'Čišćenje', 'Dvorište', 'Brod & wash', 'Selidbe'];
 const services = [
-  { title: 'Rušenja', description: 'Stanovi, kupaonice, zidovi i štemanje.', image: '/slike/rusenja.svg', alt: 'Ilustracija rušenja i uklanjanja zidova' },
-  { title: 'Šut & odvoz', description: 'Odvoz šute i otpada – toboganom direkt u kombi.', image: '/slike/sut-odvoz.svg', alt: 'Ilustracija odvoza šute kombijem' },
-  { title: 'Čišćenje', description: 'Stanovi i prostori spremni za majstore.', image: '/slike/ciscenje.svg', alt: 'Ilustracija čišćenja prostora' },
-  { title: 'Dvorište', description: 'Košnja, krčenje, okućnice, maslinici i dvorišta.', image: '/slike/dvoriste.svg', alt: 'Ilustracija uređenog zelenog dvorišta' },
-  { title: 'Brod & wash', description: 'Peremo brode, kamen, bazen i sve što trpi pranje.', image: '/slike/brod-wash.svg', alt: 'Ilustracija broda na moru' },
-  { title: 'Selidbe', description: 'Namještaj, stvari i odvoz bez filozofije.', image: '/slike/selidbe.svg', alt: 'Ilustracija kutija za selidbu' },
+  { title: 'Rušenja', description: 'Stanovi, kupaonice, zidovi i štemanje.', image: '/plakati/rusenje.jpeg', alt: 'Originalni EtoMe plakat: Rušenje' },
+  { title: 'Šut & odvoz', description: 'Odvoz šute i otpada – toboganom direkt u kombi.', image: '/plakati/sut-odvoz.jpg', alt: 'Originalni EtoMe plakat: Šut i odvoz' },
+  { title: 'Čišćenje', description: 'Stanovi i prostori spremni za majstore.', image: '/plakati/ciscenje.webp', alt: 'Originalni EtoMe plakat: Čišćenje' },
+  { title: 'Dvorište', description: 'Košnja, krčenje, okućnice, maslinici i dvorišta.', image: '/plakati/dvoriste.jpeg', alt: 'Originalni EtoMe plakat: Dvorište' },
+  { title: 'Brod & wash', description: 'Peremo brode, kamen, bazen i sve što trpi pranje.', image: '/plakati/pranje.webp', alt: 'Originalni EtoMe plakat: Pranje broda, kamena i bazena' },
+  { title: 'Selidbe', description: 'Namještaj, stvari i odvoz bez filozofije.', image: '/plakati/selidbe.jpeg', alt: 'Originalni EtoMe plakat: Selidbe' },
 ];
 const actionStyle = { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 48, borderRadius: 12, padding: '12px 14px', textDecoration: 'none', fontWeight: 900, textAlign: 'center' };
 
@@ -77,7 +77,7 @@ export default function Home() {
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(min(100%,260px),1fr))', gap: 16 }}>
           {visible.map((service) => <button key={service.title} type="button" onClick={() => setSelectedService(service)} aria-label={`Otvori detalje: ${service.title}`} style={{ display: 'block', textAlign: 'left', padding: 0, overflow: 'hidden', cursor: 'pointer', background: '#151515', color: '#fff', border: '1px solid #303030', borderRadius: 18 }}>
-            <img src={service.image} alt={service.alt} loading="lazy" style={{ display: 'block', width: '100%', height: 185, objectFit: 'cover', background: '#202020' }} />
+            <img src={service.image} alt={service.alt} loading="lazy" style={{ display: 'block', width: '100%', height: 280, objectFit: 'contain', background: '#202020' }} />
             <div style={{ padding: '18px 20px 20px' }}><div style={{ color: '#ffd400', fontWeight: 950, fontSize: 19 }}>{service.title}</div><p style={{ color: '#bdbdbd', lineHeight: 1.5, margin: '9px 0 14px' }}>{service.description}</p><span style={{ color: '#ffd400', fontWeight: 900 }}>Detalji i kontakt →</span></div>
           </button>)}
         </div>
@@ -86,7 +86,7 @@ export default function Home() {
 
       {selectedService && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelectedService(null); }} style={{ position: 'fixed', inset: 0, zIndex: 100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,.82)', backdropFilter: 'blur(6px)' }}>
         <section role="dialog" aria-modal="true" aria-labelledby="service-modal-title" style={{ width: 'min(100%, 620px)', maxHeight: 'min(92vh, 850px)', overflowY: 'auto', background: '#151515', color: '#fff', border: '1px solid #393939', borderRadius: 22, boxShadow: '0 25px 90px rgba(0,0,0,.65)' }}>
-          <div style={{ position: 'relative' }}><img src={selectedService.image} alt={selectedService.alt} style={{ display: 'block', width: '100%', height: 300, objectFit: 'cover', background: '#222' }} /><button type="button" onClick={() => setSelectedService(null)} aria-label="Zatvori detalje" style={{ position: 'absolute', top: 12, right: 12, width: 42, height: 42, border: 0, borderRadius: 999, background: '#111', color: '#fff', fontSize: 28, cursor: 'pointer' }}>×</button></div>
+          <div style={{ position: 'relative' }}><img src={selectedService.image} alt={selectedService.alt} style={{ display: 'block', width: '100%', height: 'clamp(320px, 55vh, 480px)', objectFit: 'contain', background: '#222' }} /><button type="button" onClick={() => setSelectedService(null)} aria-label="Zatvori detalje" style={{ position: 'absolute', top: 12, right: 12, width: 42, height: 42, border: 0, borderRadius: 999, background: '#111', color: '#fff', fontSize: 28, cursor: 'pointer' }}>×</button></div>
           <div style={{ padding: 22 }}><h2 id="service-modal-title" style={{ color: '#ffd400', fontSize: 30, margin: '0 0 10px' }}>{selectedService.title}</h2><p style={{ color: '#ddd', lineHeight: 1.65, fontSize: 17, margin: '0 0 20px' }}>{selectedService.description} Svaki posao procjenjujemo pojedinačno. Pošalji nam upit i dogovorit ćemo detalje.</p>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 10 }}><a href={CONTACT.whatsapp} target="_blank" rel="noopener noreferrer" style={{ ...actionStyle, background: '#25d366', color: '#07180c' }}>WhatsApp</a><a href={`mailto:${CONTACT.email}`} style={{ ...actionStyle, background: '#ffd400', color: '#111' }}>E-mail</a><a href={`tel:${CONTACT.phone}`} style={{ ...actionStyle, background: '#fff', color: '#111' }}>Poziv · {CONTACT.displayPhone}</a></div>
           </div>
