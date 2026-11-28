@@ -47,3 +47,13 @@ Nakon dodavanja ili promjene environment varijabli potrebno je napraviti novi de
 - `vercel.json` — Vercel konfiguracija
 - `.env.example` — primjer environment varijabli
 - `.gitignore` — zaštita lokalnih tajni i build datoteka
+
+## Sigurnost chata
+
+`npm test` provjerava ugovor API-ja s lažnim providerom (nije test stvarnog OpenAI ključa).
+Za Production su obvezni `OPENAI_API_KEY`, `UPSTASH_REDIS_REST_URL` i
+`UPSTASH_REDIS_REST_TOKEN`. Bez zajedničkog limitera ili kad je konfigurirani Redis
+nedostupan, chat vraća 503 i ne poziva OpenAI. Preview bez Redisa koristi samo
+best-effort ograničenje po instanci, ne globalno jamstvo. Ograničenja su 8/min i
+80/dan po IP-u; dijeljene mreže dijele limit. Origin provjera nije autentikacija
+niti potpuna zaštita od botova. Tajne se unose u Vercel, nikad u Git.

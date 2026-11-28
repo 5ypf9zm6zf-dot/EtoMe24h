@@ -43,6 +43,8 @@ export default function Home() {
     if (!text || loading) return;
     // Keep the request inside the API's 20-message contract as a chat grows.
     const next = [...messages, { role: 'user', content: text }].slice(-20);
+    // Multibyte Croatian text/emoji must also fit the 48 KiB body cap.
+    while (new TextEncoder().encode(JSON.stringify({ messages: next })).byteLength > 48 * 1024 && next.length > 1) next.shift();
     setMessages(next); setInput(''); setLoading(true);
     try {
       const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: next }) });

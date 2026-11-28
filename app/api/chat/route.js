@@ -91,6 +91,7 @@ async function checkRateLimit(clientKey) {
           '86400',
         ]),
         cache: 'no-store',
+        signal: AbortSignal.timeout(3000),
       });
 
       if (!response.ok) throw new Error('Rate limiter request failed');
@@ -100,17 +101,24 @@ async function checkRateLimit(clientKey) {
 
       const minuteCount = Number(counts[0]);
       const dayCount = Number(counts[1]);
+      if (![minuteCount, dayCount].every((count) => Number.isSafeInteger(count) && count > 0)) {
+        throw new Error('Invalid rate limiter counts');
+      }
       return {
         allowed: minuteCount <= REQUESTS_PER_MINUTE && dayCount <= REQUESTS_PER_DAY,
         retryAfter: minuteCount > REQUESTS_PER_MINUTE ? 60 : 86_400,
       };
     } catch (error) {
-      // A temporary Redis outage must not take the public chat offline.
-      console.error('EtoMe rate limiter fallback:', error?.name || 'Error');
+      // Never bypass configured shared limits during an outage.
+      console.error('EtoMe rate limiter unavailable:', error?.name || 'Error');
+      return { unavailable: true };
     }
   }
 
-  // Best-effort per-instance fallback when Redis is not configured or unavailable.
+  // In-memory limits cannot protect spend across production instances.
+  if (process.env.VERCEL_ENV === 'production') return { unavailable: true };
+
+  // Local/Preview only: best-effort fallback when Redis is not configured.
   return checkMemoryLimit(clientKey, now);
 }
 
@@ -155,39 +163,51 @@ async function readJsonBody(request) {
   }
 }
 
+function json(body, options = {}) {
+  return NextResponse.json(body, {
+    ...options,
+    headers: { ...options.headers, 'Cache-Control': 'no-store' },
+  });
+}
+
 export async function POST(request) {
   try {
+    // Browser requests must come from this deployment; this is not bot auth.
+    const origin = request.headers.get('origin');
+    if (origin && origin !== new URL(request.url).origin) {
+      return json({ reply: 'Zahtjev nije dopušten.' }, { status: 403 });
+    }
+    if (request.headers.get('content-type')?.split(';')[0].trim().toLowerCase() !== 'application/json') {
+      return json({ reply: 'Očekuje se JSON zahtjev.' }, { status: 415 });
+    }
     const parsed = await readJsonBody(request);
     if (parsed.error === 'too_large') {
-      return NextResponse.json({ reply: 'Poruka je prevelika. Skrati je i pokušaj ponovno.' }, { status: 413 });
+      return json({ reply: 'Poruka je prevelika. Skrati je i pokušaj ponovno.' }, { status: 413 });
     }
     if (parsed.error || !parsed.value || typeof parsed.value !== 'object') {
-      return NextResponse.json({ reply: 'Zahtjev nije valjan. Pokušaj ponovno.' }, { status: 400 });
+      return json({ reply: 'Zahtjev nije valjan. Pokušaj ponovno.' }, { status: 400 });
     }
 
     const messages = parsed.value.messages;
     if (!Array.isArray(messages) || messages.length === 0 || messages.length > MAX_MESSAGES) {
-      return NextResponse.json({ reply: 'Pošalji poruku pa pokušaj ponovno.' }, { status: 400 });
+      return json({ reply: 'Pošalji poruku pa pokušaj ponovno.' }, { status: 400 });
     }
 
-    const safeMessages = messages
-      .filter((message) =>
-        (message?.role === 'user' || message?.role === 'assistant') &&
-        typeof message?.content === 'string'
-      )
-      .map((message) => ({
-        role: message.role,
-        content: message.content.trim().slice(0, MAX_MESSAGE_LENGTH),
-      }))
-      .filter((message) => message.content.length > 0);
-
-    if (safeMessages.length === 0 || !safeMessages.some((message) => message.role === 'user')) {
-      return NextResponse.json({ reply: 'Nisam dobio valjanu korisničku poruku.' }, { status: 400 });
+    if (messages.some((message) =>
+      !message || (message.role !== 'user' && message.role !== 'assistant') ||
+      typeof message.content !== 'string' || !message.content.trim() ||
+      message.content.length > MAX_MESSAGE_LENGTH
+    ) || !messages.some((message) => message.role === 'user')) {
+      return json({ reply: 'Poruke nisu valjane. Skrati ih i pokušaj ponovno.' }, { status: 400 });
     }
+    const safeMessages = messages.map(({ role, content }) => ({ role, content: content.trim() }));
 
     const limit = await checkRateLimit(getClientKey(request));
+    if (limit.unavailable) {
+      return json({ reply: 'AI asistent trenutačno nije dostupan. Javite nam se putem kontakta.' }, { status: 503 });
+    }
     if (!limit.allowed) {
-      return NextResponse.json(
+      return json(
         { reply: 'Poslali ste previše poruka u kratkom vremenu. Pokušajte ponovno malo kasnije.' },
         { status: 429, headers: { 'Retry-After': String(limit.retryAfter) } }
       );
@@ -195,7 +215,7 @@ export async function POST(request) {
 
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      return NextResponse.json(
+      return json(
         { reply: 'AI asistent trenutačno nije dostupan. Možete nam se javiti izravno putem kontakta.' },
         { status: 503 }
       );
@@ -210,12 +230,12 @@ export async function POST(request) {
       max_output_tokens: MAX_OUTPUT_TOKENS,
     });
 
-    return NextResponse.json({
+    return json({
       reply: response.output_text || 'Trenutno nemam odgovor. Pokušaj ponovno.',
     });
   } catch (error) {
     console.error('EtoMe AI request failed:', error?.name || 'Error');
-    return NextResponse.json(
+    return json(
       { reply: 'Došlo je do greške. Pokušaj ponovno.' },
       { status: 500 }
     );
