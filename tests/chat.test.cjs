@@ -262,3 +262,52 @@ test('unknown provider error codes are never logged or sent to clients', async (
   assert.equal(res.status, 503);
   assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET|mock-only/);
 });
+
+
+test('Gemini free-tier provider returns a real-shaped model answer and maps chat history', async () => {
+  let sent;
+  const r = route({ GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
+    async (url, options) => {
+      assert.match(url, /models\/gemini-4-hydrogen:generateContent$/);
+      assert.equal(options.method, 'POST');
+      assert.equal(options.headers['x-goog-api-key'], 'fixture-gemini-key');
+      sent = JSON.parse(options.body);
+      return Response.json({ candidates: [{
+        content: { role: 'model', parts: [{ text: 'Pozdrav! ' }, { text: 'Kako mogu pomoći?' }] },
+        finishReason: 'STOP',
+      }] });
+    });
+  const res = await r.post(request({ messages: [
+    { role: 'user', content: 'Bok!' },
+    { role: 'assistant', content: 'Pozdrav!' },
+    { role: 'user', content: 'Trebam odvoz šute.' },
+  ] }));
+  assert.equal(res.status, 200);
+  assert.equal((await res.json()).reply, 'Pozdrav! Kako mogu pomoći?');
+  assert.equal(r.calls(), 0, 'Gemini key must take priority; OpenAI must not be called');
+  assert.equal(sent.systemInstruction.parts[0].text.includes('EtoMe AI asistent'), true);
+  assert.deepEqual(sent.contents.map(item => item.role), ['user', 'model', 'user']);
+  assert.equal(sent.generationConfig.maxOutputTokens, 400);
+});
+
+test('Gemini empty or incomplete responses are never reported as successful', async () => {
+  for (const candidate of [
+    { content: { parts: [{ text: 'Djelomičan odgovor' }] }, finishReason: 'MAX_TOKENS' },
+    { content: { parts: [] }, finishReason: 'STOP' },
+  ]) {
+    const r = route({ GEMINI_API_KEY: 'fixture-gemini-key' },
+      async () => Response.json({ candidates: [candidate] }));
+    const res = await r.post(request());
+    assert.equal(res.status, 502);
+    assert.doesNotMatch(await res.text(), /Djelomičan odgovor/);
+  }
+});
+
+test('Gemini quota errors are sanitized and never trigger paid OpenAI fallback', async () => {
+  const r = route({ GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
+    async () => Response.json({ error: { message: 'SECRET-GEMINI-ERROR', status: 'RESOURCE_EXHAUSTED' } }, { status: 429 }));
+  const res = await r.post(request());
+  assert.equal(res.status, 503);
+  assert.equal(r.calls(), 0);
+  assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-GEMINI-ERROR|fixture-gemini-key/);
+});
