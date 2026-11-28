@@ -238,7 +238,7 @@ export async function POST(request) {
       );
     }
 
-    const provider = process.env.AI_PROVIDER || 'gemini';
+    const provider = process.env.AI_PROVIDER || 'openai';
     const geminiApiKey = process.env.GEMINI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
     if ((provider === 'gemini' && !geminiApiKey) ||
@@ -254,8 +254,8 @@ export async function POST(request) {
       'Ti si EtoMe AI asistent. Odgovaraj na hrvatskom, jasno, kratko i korisno. Pomaži korisnicima oko EtoMe usluga i općih pitanja. Ne izmišljaj cijene, termine ili dostupnost.';
     let outputText;
 
-    // Gemini is the default provider. OpenAI requires an explicit AI_PROVIDER=openai
-    // setting; missing Gemini credentials never trigger a potentially paid fallback.
+    // OpenAI is the default provider. Gemini is opt-in via AI_PROVIDER=gemini;
+    // missing credentials never trigger a provider fallback or unexpected spend.
     if (provider === 'gemini') {
       const model = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
       let geminiResponse;
