@@ -22,7 +22,7 @@ function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] 
   }
   const context = vm.createContext({ createHash, isIP, Request, Response, TextDecoder,
     Uint8Array, AbortSignal, URL, setTimeout, clearTimeout, fetch: fetchImpl, console: { error(...args) { logs.push(args.join(' ')); } },
-    process: { env }, NextResponse: { json: Response.json },
+    process: { env: { AI_PROVIDER: 'openai', ...env } }, NextResponse: { json: Response.json },
     OpenAI: Provider || MockOpenAI,
   });
   vm.runInContext(source + '\nthis.POST = POST;', context);
@@ -266,7 +266,7 @@ test('unknown provider error codes are never logged or sent to clients', async (
 
 test('Gemini free-tier provider returns a real-shaped model answer and maps chat history', async () => {
   let sent;
-  const r = route({ GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
+  const r = route({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
     async (url, options) => {
       assert.match(url, /models\/gemini-4-hydrogen:generateContent$/);
       assert.equal(options.method, 'POST');
@@ -295,7 +295,7 @@ test('Gemini empty or incomplete responses are never reported as successful', as
     { content: { parts: [{ text: 'Djelomičan odgovor' }] }, finishReason: 'MAX_TOKENS' },
     { content: { parts: [] }, finishReason: 'STOP' },
   ]) {
-    const r = route({ GEMINI_API_KEY: 'fixture-gemini-key' },
+    const r = route({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture-gemini-key' },
       async () => Response.json({ candidates: [candidate] }));
     const res = await r.post(request());
     assert.equal(res.status, 502);
@@ -304,10 +304,25 @@ test('Gemini empty or incomplete responses are never reported as successful', as
 });
 
 test('Gemini quota errors are sanitized and never trigger paid OpenAI fallback', async () => {
-  const r = route({ GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
+  const r = route({ AI_PROVIDER: 'gemini', GEMINI_API_KEY: 'fixture-gemini-key', OPENAI_API_KEY: 'must-not-be-used' },
     async () => Response.json({ error: { message: 'SECRET-GEMINI-ERROR', status: 'RESOURCE_EXHAUSTED' } }, { status: 429 }));
   const res = await r.post(request());
   assert.equal(res.status, 503);
   assert.equal(r.calls(), 0);
   assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-GEMINI-ERROR|fixture-gemini-key/);
+});
+
+
+test('Gemini is the production default and never spends OpenAI when its key is missing', async () => {
+  const r = route({ AI_PROVIDER: 'gemini', OPENAI_API_KEY: 'must-not-be-used' },
+    async () => { assert.fail('Gemini credentials are missing; no provider request is allowed'); });
+  const res = await r.post(request());
+  assert.equal(res.status, 503);
+  assert.equal(r.calls(), 0);
+});
+
+test('OpenAI requires explicit AI_PROVIDER=openai selection', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only' });
+  assert.equal((await r.post(request())).status, 200);
+  assert.equal(r.calls(), 1);
 });
