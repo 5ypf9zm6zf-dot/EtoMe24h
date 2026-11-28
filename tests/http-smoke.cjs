@@ -103,6 +103,11 @@ async function main() {
       assert.equal(res.status, 200); assert.match(res.headers.get('content-type'), /^image\//);
     }
     check('six original posters served as images');
+    const favicon = await fetch(urls[0] + '/favicon.ico');
+    assert.equal(favicon.status, 200);
+    const icon = Buffer.from(await favicon.arrayBuffer());
+    assert.equal(icon.readUInt16LE(2), 1); assert.equal(icon.readUInt16LE(4), 1);
+    check('favicon is a valid ICO response, not a 404');
     assert.match(await (await fetch(urls[0] + '/sitemap.xml')).text(), /<loc>https:\/\/www\.etome24\.hr<\/loc>/);
     assert.match(await (await fetch(urls[0] + '/robots.txt')).text(), /Sitemap: https:\/\/www\.etome24\.hr\/sitemap.xml/);
     check('sitemap and robots point to WWW');
