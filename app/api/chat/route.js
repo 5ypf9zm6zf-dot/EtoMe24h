@@ -276,7 +276,14 @@ export async function POST(request) {
       : upstreamStatus === 429 ? 'provider_quota_or_rate_limit'
       : upstreamStatus ? 'provider_http'
       : connection ? 'provider_connection' : 'internal';
-    console.error('EtoMe AI request failed:', JSON.stringify({ category, upstreamStatus }));
+    // A fixed allow-list distinguishes billing/quota from transient 429s
+    // without ever logging raw provider codes, messages or response bodies.
+    const upstreamCode = upstreamStatus === 429 ? [
+      'insufficient_quota', 'rate_limit_exceeded', 'credit_balance_exhausted',
+      'organization_usage_limit_exceeded', 'organization_spend_limit_exceeded',
+      'project_spend_limit_exceeded',
+    ].find((code) => code === error?.code) : undefined;
+    console.error('EtoMe AI request failed:', JSON.stringify({ category, upstreamStatus, upstreamCode }));
     const status = timeout ? 504
       : category === 'provider_auth' || upstreamStatus === 429 ? 503
       : upstreamStatus || connection ? 502 : 500;

@@ -243,3 +243,22 @@ for (const count of [true, '1', [1], 1.5, 0, -1, null, 9007199254740992]) {
     assert.equal(r.calls(), 0);
   });
 }
+
+for (const code of ['insufficient_quota', 'rate_limit_exceeded', 'credit_balance_exhausted',
+  'organization_usage_limit_exceeded', 'organization_spend_limit_exceeded', 'project_spend_limit_exceeded']) {
+  test(`429 diagnostic safely identifies ${code}`, async () => {
+    const error = new RealOpenAI.RateLimitError(429, { code, message: 'SECRET-do-not-log' }, 'SECRET-do-not-log', new Headers());
+    const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => { throw error; });
+    const res = await r.post(request());
+    assert.equal(res.status, 503);
+    assert.equal(JSON.parse(r.logs[0].slice(r.logs[0].indexOf('{'))).upstreamCode, code);
+    assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-do-not-log|mock-only/);
+  });
+}
+test('unknown provider error codes are never logged or sent to clients', async () => {
+  const error = new RealOpenAI.RateLimitError(429, { code: 'SECRET-UNTRUSTED-CODE' }, 'SECRET-message', new Headers());
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => { throw error; });
+  const res = await r.post(request());
+  assert.equal(res.status, 503);
+  assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET|mock-only/);
+});
