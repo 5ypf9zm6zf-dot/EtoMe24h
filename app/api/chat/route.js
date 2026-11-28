@@ -238,9 +238,12 @@ export async function POST(request) {
       );
     }
 
+    const provider = process.env.AI_PROVIDER || 'gemini';
     const geminiApiKey = process.env.GEMINI_API_KEY;
     const openaiApiKey = process.env.OPENAI_API_KEY;
-    if (!geminiApiKey && !openaiApiKey) {
+    if ((provider === 'gemini' && !geminiApiKey) ||
+        (provider === 'openai' && !openaiApiKey) ||
+        !['gemini', 'openai'].includes(provider)) {
       return json(
         { reply: 'AI asistent trenutačno nije dostupan. Možete nam se javiti izravno putem kontakta.' },
         { status: 503 }
@@ -251,9 +254,9 @@ export async function POST(request) {
       'Ti si EtoMe AI asistent. Odgovaraj na hrvatskom, jasno, kratko i korisno. Pomaži korisnicima oko EtoMe usluga i općih pitanja. Ne izmišljaj cijene, termine ili dostupnost.';
     let outputText;
 
-    // Gemini is preferred when configured. It uses its own free-tier quota;
-    // never fall back to OpenAI automatically or incur an unexpected charge.
-    if (geminiApiKey) {
+    // Gemini is the default provider. OpenAI requires an explicit AI_PROVIDER=openai
+    // setting; missing Gemini credentials never trigger a potentially paid fallback.
+    if (provider === 'gemini') {
       const model = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
       let geminiResponse;
       try {
@@ -309,8 +312,8 @@ export async function POST(request) {
         return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
       }
     } else {
-      // Existing OpenAI path remains available as an explicit fallback when
-      // GEMINI_API_KEY is absent; no automatic provider switching on errors.
+      // OpenAI is available only when explicitly selected with AI_PROVIDER=openai;
+      // provider errors never trigger automatic switching or unexpected spend.
       const client = new OpenAI({ apiKey: openaiApiKey, timeout: 20_000, maxRetries: 0, logLevel: 'off' });
       const response = await client.responses.create({
         model: process.env.OPENAI_MODEL || 'gpt-5-mini',
