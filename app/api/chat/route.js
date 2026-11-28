@@ -115,6 +115,9 @@ async function checkRateLimit(clientKey) {
     }
   }
 
+  // A partially configured shared limiter must never silently fall back.
+  if (redisUrl || redisToken) return { unavailable: true };
+
   // In-memory limits cannot protect spend across production instances.
   if (process.env.VERCEL_ENV === 'production') return { unavailable: true };
 
@@ -230,14 +233,28 @@ export async function POST(request) {
       max_output_tokens: MAX_OUTPUT_TOKENS,
     });
 
-    return json({
-      reply: response.output_text || 'Trenutno nemam odgovor. Pokušaj ponovno.',
-    });
+    // An empty/incomplete provider result is not a successful AI answer.
+    if (!response.output_text?.trim()) {
+      console.error('EtoMe AI request failed:', JSON.stringify({ category: 'empty_output' }));
+      return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
+    }
+    return json({ reply: response.output_text });
   } catch (error) {
-    console.error('EtoMe AI request failed:', error?.name || 'Error');
-    return json(
-      { reply: 'Došlo je do greške. Pokušaj ponovno.' },
-      { status: 500 }
-    );
+    // SDK errors may all be named Error. Log only allow-listed diagnostics,
+    // never provider messages, request bodies, headers or credential values.
+    const upstreamStatus = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
+      ? error.status : undefined;
+    const timeout = error instanceof OpenAI.APIConnectionTimeoutError;
+    const connection = error instanceof OpenAI.APIConnectionError;
+    const category = timeout ? 'timeout'
+      : upstreamStatus === 401 || upstreamStatus === 403 ? 'provider_auth'
+      : upstreamStatus === 429 ? 'provider_quota_or_rate_limit'
+      : upstreamStatus ? 'provider_http'
+      : connection ? 'provider_connection' : 'internal';
+    console.error('EtoMe AI request failed:', JSON.stringify({ category, upstreamStatus }));
+    const status = timeout ? 504
+      : category === 'provider_auth' || upstreamStatus === 429 ? 503
+      : upstreamStatus || connection ? 502 : 500;
+    return json({ reply: 'AI asistent trenutačno nije dostupan. Pokušaj ponovno kasnije.' }, { status });
   }
 }

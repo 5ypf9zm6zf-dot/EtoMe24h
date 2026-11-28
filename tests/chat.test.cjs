@@ -4,22 +4,29 @@ const vm = require('node:vm');
 const fs = require('node:fs');
 const { createHash } = require('node:crypto');
 const { isIP } = require('node:net');
+const RealOpenAI = require('openai');
 
 // Exercise the route without a live provider or credentials. Next's response
 // helper has the same JSON contract as the Web Response used here.
-function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] })) {
+function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] }), provider = async () => ({ output_text: 'Testni odgovor' }), Provider) {
   let calls = 0;
   const source = fs.readFileSync('app/api/chat/route.js', 'utf8')
     .replace(/^import .*;\n/gm, '').replace(/export /g, '');
+  const logs = [];
+  let options, input;
+  class MockOpenAI extends RealOpenAI {
+    constructor(opts) {
+      super(opts); options = opts;
+      this.responses = { create: async (value) => { calls++; input = value; return provider(); } };
+    }
+  }
   const context = vm.createContext({ createHash, isIP, Request, Response, TextDecoder,
-    Uint8Array, AbortSignal, URL, fetch: fetchImpl, console: { error() {} },
+    Uint8Array, AbortSignal, URL, fetch: fetchImpl, console: { error(...args) { logs.push(args.join(' ')); } },
     process: { env }, NextResponse: { json: Response.json },
-    OpenAI: class { constructor() { this.responses = { create: async () => {
-      calls++; return { output_text: 'Testni odgovor' };
-    } }; } },
+    OpenAI: Provider || MockOpenAI,
   });
   vm.runInContext(source + '\nthis.POST = POST;', context);
-  return { post: context.POST, calls: () => calls };
+  return { post: context.POST, calls: () => calls, logs, options: () => options, input: () => input };
 }
 const message = { role: 'user', content: 'Trebam odvoz šute.' };
 function request(body = { messages: [message] }, headers = {}) {
@@ -87,4 +94,66 @@ test('malformed Redis counts fail closed', async () => {
   const r = route({ UPSTASH_REDIS_REST_URL: 'https://redis.test', UPSTASH_REDIS_REST_TOKEN: 'mock' },
     async () => Response.json({ result: ['bad', -1] }));
   assert.equal((await r.post(request())).status, 503);
+});
+
+test('partial Redis configuration fails closed in Preview', async () => {
+  for (const config of [{ UPSTASH_REDIS_REST_URL: 'https://redis.test' }, { UPSTASH_REDIS_REST_TOKEN: 'mock' }]) {
+    const r = route({ OPENAI_API_KEY: 'mock-only', ...config });
+    assert.equal((await r.post(request())).status, 503); assert.equal(r.calls(), 0);
+  }
+});
+test('SDK budget and timeout are explicit; no automatic retries', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only' });
+  await r.post(request());
+  assert.equal(r.options().timeout, 20000); assert.equal(r.options().maxRetries, 0);
+  assert.equal(r.input().max_output_tokens, 400);
+  assert.equal(r.input().model, 'gpt-5-mini');
+});
+for (const [name, error, status, category] of [
+  ['authentication', new RealOpenAI.AuthenticationError(401, {}, 'SECRET-do-not-log', new Headers()), 503, 'provider_auth'],
+  ['quota', new RealOpenAI.RateLimitError(429, {}, 'SECRET-do-not-log', new Headers()), 503, 'provider_quota_or_rate_limit'],
+  ['bad API parameter', new RealOpenAI.BadRequestError(400, {}, 'SECRET-do-not-log', new Headers()), 502, 'provider_http'],
+  ['provider timeout', new RealOpenAI.APIConnectionTimeoutError(), 504, 'timeout'],
+  ['provider connection', new RealOpenAI.APIConnectionError({ message: 'SECRET-do-not-log' }), 502, 'provider_connection'],
+  ['internal', Error('SECRET-do-not-log'), 500, 'internal'],
+]) test(`sanitized ${name} failure`, async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => { throw error; });
+  const res = await r.post(request());
+  assert.equal(res.status, status); assert.equal(res.headers.get('cache-control'), 'no-store');
+  assert.match(r.logs.join(), new RegExp(category));
+  assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-do-not-log|mock-only/);
+});
+for (const output of ['', '   ', undefined]) test(`empty provider output ${JSON.stringify(output)} is not success`, async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => ({ output_text: output }));
+  assert.equal((await r.post(request())).status, 502);
+});
+test('Redis receives atomic EVAL and a bounded timeout', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', UPSTASH_REDIS_REST_URL: 'https://redis.test', UPSTASH_REDIS_REST_TOKEN: 'mock' }, async (url, opts) => {
+    assert.equal(url, 'https://redis.test'); assert.ok(opts.signal instanceof AbortSignal);
+    const command = JSON.parse(opts.body);
+    assert.equal(command[0], 'EVAL'); assert.equal(command[2], '2');
+    assert.deepEqual(command.slice(-2), ['60', '86400']);
+    return Response.json({ result: [9, 9] });
+  });
+  assert.equal((await r.post(request())).status, 429); assert.equal(r.calls(), 0);
+});
+test('Redis timeout fails closed', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', UPSTASH_REDIS_REST_URL: 'https://redis.test', UPSTASH_REDIS_REST_TOKEN: 'mock' }, async () => { throw new DOMException('timeout', 'TimeoutError'); });
+  assert.equal((await r.post(request())).status, 503); assert.equal(r.calls(), 0);
+});
+test('real installed SDK serializes Responses API request (HTTP fixture, not live AI)', async () => {
+  class SDK extends RealOpenAI {
+    constructor(opts) { super({ ...opts, fetch: async (url, init) => {
+      assert.equal(String(url), 'https://api.openai.com/v1/responses');
+      const body = JSON.parse(init.body);
+      assert.equal(body.model, 'gpt-5-mini'); assert.equal(body.max_output_tokens, 400);
+      assert.equal(body.input[0].role, 'user');
+      return Response.json({ id: 'resp_fixture', object: 'response', status: 'completed', output: [
+        { type: 'message', role: 'assistant', content: [{ type: 'output_text', text: 'SDK fixture odgovor', annotations: [] }] }
+      ] });
+    } }); }
+  }
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, undefined, SDK);
+  const res = await r.post(request()); assert.equal(res.status, 200);
+  assert.equal((await res.json()).reply, 'SDK fixture odgovor');
 });
