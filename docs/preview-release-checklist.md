@@ -8,8 +8,11 @@ Ne mijenjati originalne plakate. Nikada ne slati tajne u chat, Git ili logove.
 U postojećem projektu otvoriti **Environment Variables** u sidebaru.
 Za postojeći Preview `OPENAI_API_KEY`: izbornik s tri točke → **Edit**,
 unijeti valjan ključ, tip **Secret**, odabrati **Preview**, zatim **Save**.
-Za ovu PR granu provjeriti da nema neželjenog branch overridea.
-Za **Production** dodati zaseban valjan ključ s točno istim nazivom.
+Odabrati zapis koji cilja samo Preview i nema Git branch ograničenje.
+Ne mijenjati zasebni zapis za `fix/preview-gpt5-env-key`: to nije grana ovog PR-a.
+Za ovu PR granu (`fix/consolidated-ai-route-security`) provjeriti da nema
+neželjenog branch overridea. Ne označavati Production ili Development i ne
+mijenjati druge zapise. Production je izvan opsega ovog postupka.
 Varijable drukčijeg naziva, primjerice `open_api_kay`, kod ne čita.
 Ne preimenovati i ne brisati druge tajne bez provjere njihove namjene.
 Ključ se čita samo na poslužitelju preko `process.env.OPENAI_API_KEY`.
@@ -32,7 +35,27 @@ Otvoriti https://vercel.com/marketplace/upstash i odabrati Redis integraciju.
 Prijaviti se na ovlašteni Upstash račun, odabrati postojeću bazu i povezati je s
 postojećim projektom. Ne otvarati novi Vercel projekt. Ako baze nema, vlasnik
 mora odabrati odgovarajući resurs i plan; ne pretpostavljati suglasnost za trošak.
-Provjeriti da veza pokriva Preview i, za kasniju objavu, Production.
+Povezati isključivo Preview; ne odabrati Production niti Development.
+
+CLI nema opciju za spremanje nepotvrđene instalacije bez popratnih promjena.
+`integration accept-terms` instalira integraciju i traži ljudsku potvrdu uvjeta;
+`integration add` stvara novi resurs, pa nije način spajanja postojeće baze.
+Ne prihvaćati uvjete ili pokretati novi resurs bez odobrenja vlasnika.
+
+Kad vlasnik autentificira račun i postojeći resurs postane vidljiv u timu,
+preostala CLI radnja može biti samo sljedeća veza (zamijeniti oznaku ID-em
+resursa iz stvarnog inventara; naredba još NIJE izvršena):
+
+```sh
+vercel integration resource connect <resource-id> etome24h --environment preview --scope etome24 --yes
+```
+
+Takva radnja traži zasebno odobrenje za povezivanje resursa i Preview varijable.
+Ne izostaviti `--environment preview`: zadani opseg uključuje i Production.
+Ako baze nema, vlasnik prvo bira resurs/plan; nije moguće unaprijed obećati
+samo jednu završnu potvrdu. Prije nove baze provjeriti automatsku nadogradnju
+plana i eviction; CLI metapodaci navode `autoUpgrade=true` kao zadanu vrijednost.
+Za limiter ne uključivati eviction koji može ukloniti aktivne brojače.
 
 Kod podržava izravni Upstash par:
 
@@ -71,7 +94,7 @@ Ograničenja su fiksni vremenski bucketi (8/min, 80/dan), ne klizni prozori.
 ## 4. Ponovljivi lokalni testovi i release gate
 
 ```sh
-npm install
+npm ci
 npm test
 npm run build
 npm run test:http

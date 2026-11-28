@@ -6,7 +6,7 @@ const { spawn } = require('node:child_process');
 const { once } = require('node:events');
 
 async function main() {
-  let mode = 'completed', redisCalls = 0, providerCalls = 0;
+  let mode = 'completed', redisCalls = 0, providerCalls = 0, invalidRedis = false;
   const counts = new Map(), children = [];
   let output = '';
   const fixture = http.createServer(async (req, res) => {
@@ -17,6 +17,7 @@ async function main() {
       assert.equal(req.headers.authorization, 'Bearer fixture-redis-token');
       const command = JSON.parse(raw);
       assert.equal(command[0], 'EVAL'); assert.equal(command[2], '2');
+      if (invalidRedis) return res.end(JSON.stringify({ result: [true, 1] }));
       const result = command.slice(3, 5).map(key => {
         const count = (counts.get(key) || 0) + 1; counts.set(key, count); return count;
       });
@@ -72,6 +73,11 @@ async function main() {
       assert.equal(res.status, status, label); assert.equal(res.headers.get('cache-control'), 'no-store'); check(`${label}: ${status}`);
     }
     assert.equal(redisCalls, 0); assert.equal(providerCalls, 0);
+    invalidRedis = true;
+    const malformedRedis = await post(0);
+    assert.equal(malformedRedis.status, 503); assert.equal(providerCalls, 0);
+    check('malformed Redis counter fails closed before provider call');
+    invalidRedis = false;
     for (let i = 0; i < 8; i++) {
       const res = await post(i % 2);
       assert.equal(res.status, 200); assert.equal((await res.json()).reply, 'HTTP fixture odgovor');

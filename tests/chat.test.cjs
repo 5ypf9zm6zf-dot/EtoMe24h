@@ -234,3 +234,12 @@ test('SDK logging is disabled explicitly regardless of OPENAI_LOG', async () => 
   assert.equal((await r.post(request())).status, 200);
   assert.equal(r.options().logLevel, 'off');
 });
+
+for (const count of [true, '1', [1], 1.5, 0, -1, null, 9007199254740992]) {
+  test(`Redis count ${JSON.stringify(count)} cannot authorize an AI request`, async () => {
+    const r = route({ OPENAI_API_KEY: 'mock-only', UPSTASH_REDIS_REST_URL: 'https://redis.test',
+      UPSTASH_REDIS_REST_TOKEN: 'mock' }, async () => Response.json({ result: [count, 1] }));
+    assert.equal((await r.post(request())).status, 503);
+    assert.equal(r.calls(), 0);
+  });
+}

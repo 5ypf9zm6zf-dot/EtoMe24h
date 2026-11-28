@@ -106,8 +106,9 @@ async function checkRateLimit(clientKey) {
       const counts = payload?.result;
       if (!Array.isArray(counts) || counts.length !== 2) throw new Error('Invalid rate limiter response');
 
-      const minuteCount = Number(counts[0]);
-      const dayCount = Number(counts[1]);
+      // Redis integer replies must be JSON numbers. Coercion would accept
+      // malformed booleans, strings or arrays as valid quota counters.
+      const [minuteCount, dayCount] = counts;
       if (![minuteCount, dayCount].every((count) => Number.isSafeInteger(count) && count > 0)) {
         throw new Error('Invalid rate limiter counts');
       }
