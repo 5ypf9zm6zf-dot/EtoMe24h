@@ -10,9 +10,9 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "latest",
-    "openai": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "next": "16.4.6",
+    "openai": "7.65.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   }
 }

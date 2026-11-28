@@ -228,3 +228,9 @@ test('partial Marketplace credentials also fail closed', async () => {
     assert.equal((await r.post(request())).status, 503); assert.equal(r.calls(), 0);
   }
 });
+
+test('SDK logging is disabled explicitly regardless of OPENAI_LOG', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', OPENAI_LOG: 'debug' });
+  assert.equal((await r.post(request())).status, 200);
+  assert.equal(r.options().logLevel, 'off');
+});

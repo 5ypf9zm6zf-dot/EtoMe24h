@@ -12,7 +12,7 @@ EtoMe 24h web stranica s ugrađenim AI asistentom.
 ## Lokalno pokretanje
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 

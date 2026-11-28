@@ -41,7 +41,7 @@ async function main() {
     for (const port of [3211, 3212]) {
       const child = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(port), '-H', '127.0.0.1'], {
         env: { ...process.env, VERCEL_ENV: 'preview', OPENAI_API_KEY: 'fixture-only',
-          OPENAI_LOG: 'off', OPENAI_BASE_URL: fixtureUrl + '/v1',
+          OPENAI_LOG: 'debug', OPENAI_BASE_URL: fixtureUrl + '/v1',
           UPSTASH_REDIS_REST_URL: fixtureUrl, UPSTASH_REDIS_REST_TOKEN: 'fixture-redis-token' },
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -57,7 +57,7 @@ async function main() {
     }
     let passed = 0;
     const check = (label) => { passed++; console.log(`PASS ${label}`); };
-    const body = JSON.stringify({ messages: [{ role: 'user', content: 'Trebam odvoz.' }] });
+    const body = JSON.stringify({ messages: [{ role: 'user', content: 'PRIVATE-PROMPT-FIXTURE Trebam odvoz.' }] });
     const post = (index, data = body, headers = {}) => fetch(urls[index] + '/api/chat', {
       method: 'POST', headers: { 'content-type': 'application/json', 'x-real-ip': '192.0.2.1', ...headers }, body: data,
     });
@@ -100,7 +100,7 @@ async function main() {
     assert.match(await (await fetch(urls[0] + '/sitemap.xml')).text(), /<loc>https:\/\/www\.etome24\.hr<\/loc>/);
     assert.match(await (await fetch(urls[0] + '/robots.txt')).text(), /Sitemap: https:\/\/www\.etome24\.hr\/sitemap.xml/);
     check('sitemap and robots point to WWW');
-    assert.doesNotMatch(output, /SECRET-FIXTURE-DO-NOT-LOG|fixture-only|fixture-redis-token/);
+    assert.doesNotMatch(output, /SECRET-FIXTURE-DO-NOT-LOG|fixture-only|fixture-redis-token|PRIVATE-PROMPT-FIXTURE/);
     check('runtime logs do not expose fixture secrets or provider error text');
     console.log(`${passed} HTTP checks passed. Provider and shared counters were fixtures, NOT live AI/Redis.`);
   } finally {

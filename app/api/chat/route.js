@@ -245,7 +245,9 @@ export async function POST(request) {
       );
     }
 
-    const client = new OpenAI({ apiKey, timeout: 20_000, maxRetries: 0 });
+    // Keep SDK diagnostics off even if OPENAI_LOG is enabled in the host.
+    // Only our allow-listed error categories below may reach runtime logs.
+    const client = new OpenAI({ apiKey, timeout: 20_000, maxRetries: 0, logLevel: 'off' });
     const response = await client.responses.create({
       model: process.env.OPENAI_MODEL || 'gpt-5-mini',
       instructions:
