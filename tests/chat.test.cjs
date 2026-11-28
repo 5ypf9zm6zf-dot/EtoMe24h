@@ -314,7 +314,7 @@ test('Gemini quota errors are sanitized and never trigger paid OpenAI fallback',
 
 
 test('Gemini is the production default and never spends OpenAI when its key is missing', async () => {
-  const r = route({ AI_PROVIDER: 'gemini', OPENAI_API_KEY: 'must-not-be-used' },
+  const r = route({ AI_PROVIDER: undefined, OPENAI_API_KEY: 'must-not-be-used' },
     async () => { assert.fail('Gemini credentials are missing; no provider request is allowed'); });
   const res = await r.post(request());
   assert.equal(res.status, 503);
