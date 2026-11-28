@@ -1,9 +1,9 @@
-export default function sitemap() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.etome24.hr';
+const SITE_URL = 'https://www.etome24.hr';
 
+export default function sitemap() {
   return [
     {
-      url: baseUrl,
+      url: SITE_URL,
       lastModified: new Date(),
       changeFrequency: 'weekly',
       priority: 1,

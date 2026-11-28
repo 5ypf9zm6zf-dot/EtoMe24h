@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { requestChatReply } from './chat-response.mjs';
 
 const CONTACT = {
   phone: '+385981947591',
@@ -26,6 +27,7 @@ export default function Home() {
   const [messages, setMessages] = useState([{ role: 'assistant', content: 'Bok! 👋 Ja sam EtoMe AI. Reci što ti treba i složit ćemo rješenje.' }]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [chatError, setChatError] = useState('');
 
   useEffect(() => {
     if (!selectedService && !chatOpen) return;
@@ -41,14 +43,15 @@ export default function Home() {
   async function sendMessage() {
     const text = input.trim();
     if (!text || loading) return;
-    const next = [...messages, { role: 'user', content: text }];
-    setMessages(next); setInput(''); setLoading(true);
+    // Keep the request inside the API's 20-message contract as a chat grows.
+    const next = [...messages, { role: 'user', content: text }].slice(-20);
+    // Multibyte Croatian text/emoji must also fit the 48 KiB body cap.
+    while (new TextEncoder().encode(JSON.stringify({ messages: next })).byteLength > 48 * 1024 && next.length > 1) next.shift();
+    setMessages(next); setInput(''); setLoading(true); setChatError('');
     try {
-      const response = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ messages: next }) });
-      const data = await response.json();
-      setMessages([...next, { role: 'assistant', content: data.reply || 'Trenutno ne mogu odgovoriti. Nazovi nas direktno.' }]);
-    } catch {
-      setMessages([...next, { role: 'assistant', content: 'AI je trenutno nedostupan. Nazovi nas na 098 1947 591.' }]);
+      const result = await requestChatReply(next);
+      if (result.error) setChatError(result.error);
+      else setMessages([...next, { role: 'assistant', content: result.reply }]);
     } finally { setLoading(false); }
   }
 
@@ -96,8 +99,8 @@ export default function Home() {
       {chatOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setChatOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 110, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,.78)' }}>
         <section role="dialog" aria-modal="true" aria-labelledby="chat-title" style={{ width: 'min(100%, 460px)', height: 'min(680px, 90vh)', background: '#fff', color: '#111', borderRadius: 20, boxShadow: '0 20px 70px rgba(0,0,0,.6)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
           <header style={{ background: '#111', color: '#ffd400', padding: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontWeight: 950 }}><span id="chat-title">🤖 EtoMe AI · Tu smo 24 sata</span><button onClick={() => setChatOpen(false)} aria-label="Zatvori AI asistenta" style={{ background: 'none', color: '#fff', border: 0, fontSize: 26, cursor: 'pointer' }}>×</button></header>
-          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{messages.map((message, i) => <div key={i} style={{ margin: '8px 0', textAlign: message.role === 'user' ? 'right' : 'left' }}><span style={{ display: 'inline-block', maxWidth: '90%', padding: '10px 13px', borderRadius: 14, background: message.role === 'user' ? '#fff0a8' : '#eee', lineHeight: 1.5 }}>{message.content}</span></div>)}{loading && <div style={{ color: '#777', padding: 8 }}>EtoMe AI razmišlja…</div>}</div>
-          <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid #eee' }}><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Napiši što ti treba…" aria-label="Poruka za EtoMe AI" style={{ minWidth: 0, flex: 1, border: '1px solid #ccc', borderRadius: 12, padding: 12, fontSize: 16 }} /><button type="submit" disabled={loading || !input.trim()} style={{ border: 0, borderRadius: 12, padding: '0 16px', background: '#ffd400', color: '#111', fontWeight: 900, cursor: loading ? 'wait' : 'pointer' }}>Pošalji</button></form>
+          <div style={{ flex: 1, overflowY: 'auto', padding: 14 }}>{messages.map((message, i) => <div key={i} style={{ margin: '8px 0', textAlign: message.role === 'user' ? 'right' : 'left' }}><span style={{ display: 'inline-block', maxWidth: '90%', padding: '10px 13px', borderRadius: 14, background: message.role === 'user' ? '#fff0a8' : '#eee', lineHeight: 1.5 }}>{message.content}</span></div>)}{chatError && <div role="alert" style={{ color: '#9c2020', padding: 8 }}>Greška: {chatError}</div>}{loading && <div style={{ color: '#777', padding: 8 }}>EtoMe AI razmišlja…</div>}</div>
+          <form onSubmit={(event) => { event.preventDefault(); sendMessage(); }} style={{ display: 'flex', gap: 8, padding: 10, borderTop: '1px solid #eee' }}><input value={input} maxLength={2000} onChange={(event) => setInput(event.target.value)} placeholder="Napiši što ti treba…" aria-label="Poruka za EtoMe AI" style={{ minWidth: 0, flex: 1, border: '1px solid #ccc', borderRadius: 12, padding: 12, fontSize: 16 }} /><button type="submit" disabled={loading || !input.trim()} style={{ border: 0, borderRadius: 12, padding: '0 16px', background: '#ffd400', color: '#111', fontWeight: 900, cursor: loading ? 'wait' : 'pointer' }}>Pošalji</button></form>
         </section>
       </div>}
     </main>

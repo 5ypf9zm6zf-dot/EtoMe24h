@@ -4,13 +4,17 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test": "node --test tests/*.test.cjs",
+    "test:http": "node tests/http-smoke.cjs",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "verify:models": "node scripts/preview-readiness.cjs models",
+    "verify:redis": "node scripts/preview-readiness.cjs redis"
   },
   "dependencies": {
-    "next": "latest",
-    "openai": "latest",
-    "react": "latest",
-    "react-dom": "latest"
+    "next": "16.4.6",
+    "openai": "7.65.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
   }
 }
