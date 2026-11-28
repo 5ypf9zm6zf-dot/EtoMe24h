@@ -6,7 +6,7 @@ EtoMe 24h web stranica s ugrađenim AI asistentom.
 
 - Next.js
 - React
-- OpenAI API
+- OpenAI API (default AI provider)
 - Vercel
 
 ## Lokalno pokretanje
@@ -24,10 +24,15 @@ Kreiraj `.env.local` u korijenu projekta:
 
 ```env
 OPENAI_API_KEY=your_key_here
+AI_PROVIDER=openai
 OPENAI_MODEL=gpt-5-mini
 ```
 
 **Nikad ne stavljaj stvarni API ključ u GitHub kod niti u varijablu koja počinje s `NEXT_PUBLIC_`.**
+
+`AI_PROVIDER` defaults to `openai`. Gemini is optional and is used only when
+`AI_PROVIDER=gemini` and a valid `GEMINI_API_KEY` are explicitly configured.
+There is no automatic provider fallback.
 
 ## Vercel deploy
 
