@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server';
 export const runtime = 'nodejs';
 
 const MAX_BODY_BYTES = 48 * 1024;
+const BODY_TIMEOUT_MS = 10_000;
 const MAX_MESSAGES = 20;
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_OUTPUT_TOKENS = 400;
@@ -68,8 +69,14 @@ function checkMemoryLimit(clientKey, now) {
 
 async function checkRateLimit(clientKey) {
   const now = Date.now();
-  const redisUrl = process.env.UPSTASH_REDIS_REST_URL;
-  const redisToken = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Vercel Marketplace uses KV_*; direct Upstash credentials use UPSTASH_*.
+  // Select a whole pair, never combine credentials from different resources.
+  const directRedis = process.env.UPSTASH_REDIS_REST_URL || process.env.UPSTASH_REDIS_REST_TOKEN;
+  const redisUrl = directRedis ? process.env.UPSTASH_REDIS_REST_URL : process.env.KV_REST_API_URL;
+  const redisToken = directRedis ? process.env.UPSTASH_REDIS_REST_TOKEN : process.env.KV_REST_API_TOKEN;
+  // Preview testing must not consume Production quotas on a shared database.
+  // Keep the namespace stable across instances/deployments of this environment.
+  const namespace = `etome:chat:${process.env.VERCEL_PROJECT_ID || 'etome24h'}:${process.env.VERCEL_ENV || 'development'}`;
 
   if (redisUrl && redisToken) {
     try {
@@ -85,8 +92,8 @@ async function checkRateLimit(clientKey) {
           'EVAL',
           RATE_LIMIT_SCRIPT,
           '2',
-          `etome:chat:${clientKey}:m:${minuteBucket}`,
-          `etome:chat:${clientKey}:d:${dayBucket}`,
+          `${namespace}:${clientKey}:m:${minuteBucket}`,
+          `${namespace}:${clientKey}:d:${dayBucket}`,
           '60',
           '86400',
         ]),
@@ -108,9 +115,9 @@ async function checkRateLimit(clientKey) {
         allowed: minuteCount <= REQUESTS_PER_MINUTE && dayCount <= REQUESTS_PER_DAY,
         retryAfter: minuteCount > REQUESTS_PER_MINUTE ? 60 : 86_400,
       };
-    } catch (error) {
-      // Never bypass configured shared limits during an outage.
-      console.error('EtoMe rate limiter unavailable:', error?.name || 'Error');
+    } catch {
+      // Even an error name is untrusted; never log provider-controlled data.
+      console.error('EtoMe rate limiter unavailable');
       return { unavailable: true };
     }
   }
@@ -136,6 +143,13 @@ async function readJsonBody(request) {
   const reader = request.body.getReader();
   const chunks = [];
   let totalBytes = 0;
+  let timedOut = false;
+  // Bound the entire upload, not each chunk: slow clients cannot hold a
+  // function indefinitely. Cancelling also resolves an outstanding read.
+  const timer = setTimeout(() => {
+    timedOut = true;
+    void reader.cancel().catch(() => {});
+  }, BODY_TIMEOUT_MS);
 
   try {
     while (true) {
@@ -143,14 +157,18 @@ async function readJsonBody(request) {
       if (done) break;
       totalBytes += value.byteLength;
       if (totalBytes > MAX_BODY_BYTES) {
-        await reader.cancel();
+        void reader.cancel().catch(() => {});
         return { error: 'too_large' };
       }
       chunks.push(value);
     }
+  } catch {
+    return { error: timedOut ? 'timeout' : 'invalid' };
   } finally {
+    clearTimeout(timer);
     reader.releaseLock();
   }
+  if (timedOut) return { error: 'timeout' };
 
   const body = new Uint8Array(totalBytes);
   let offset = 0;
@@ -184,6 +202,9 @@ export async function POST(request) {
       return json({ reply: 'Očekuje se JSON zahtjev.' }, { status: 415 });
     }
     const parsed = await readJsonBody(request);
+    if (parsed.error === 'timeout') {
+      return json({ reply: 'Slanje poruke je isteklo. Pokušaj ponovno.' }, { status: 408 });
+    }
     if (parsed.error === 'too_large') {
       return json({ reply: 'Poruka je prevelika. Skrati je i pokušaj ponovno.' }, { status: 413 });
     }
@@ -234,8 +255,9 @@ export async function POST(request) {
     });
 
     // An empty/incomplete provider result is not a successful AI answer.
-    if (!response.output_text?.trim()) {
-      console.error('EtoMe AI request failed:', JSON.stringify({ category: 'empty_output' }));
+    if (response.status !== 'completed' || !response.output_text?.trim()) {
+      const category = response.status !== 'completed' ? 'incomplete_output' : 'empty_output';
+      console.error('EtoMe AI request failed:', JSON.stringify({ category }));
       return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
     }
     return json({ reply: response.output_text });

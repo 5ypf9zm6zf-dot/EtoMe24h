@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "test": "node --test tests/*.test.cjs",
+    "test:http": "node tests/http-smoke.cjs",
     "build": "next build",
     "start": "next start"
   },

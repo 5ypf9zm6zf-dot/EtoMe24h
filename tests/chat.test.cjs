@@ -8,7 +8,7 @@ const RealOpenAI = require('openai');
 
 // Exercise the route without a live provider or credentials. Next's response
 // helper has the same JSON contract as the Web Response used here.
-function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] }), provider = async () => ({ output_text: 'Testni odgovor' }), Provider) {
+function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] }), provider = async () => ({ status: 'completed', output_text: 'Testni odgovor' }), Provider) {
   let calls = 0;
   const source = fs.readFileSync('app/api/chat/route.js', 'utf8')
     .replace(/^import .*;\n/gm, '').replace(/export /g, '');
@@ -21,7 +21,7 @@ function route(env = {}, fetchImpl = async () => Response.json({ result: [1, 1] 
     }
   }
   const context = vm.createContext({ createHash, isIP, Request, Response, TextDecoder,
-    Uint8Array, AbortSignal, URL, fetch: fetchImpl, console: { error(...args) { logs.push(args.join(' ')); } },
+    Uint8Array, AbortSignal, URL, setTimeout, clearTimeout, fetch: fetchImpl, console: { error(...args) { logs.push(args.join(' ')); } },
     process: { env }, NextResponse: { json: Response.json },
     OpenAI: Provider || MockOpenAI,
   });
@@ -124,7 +124,7 @@ for (const [name, error, status, category] of [
   assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-do-not-log|mock-only/);
 });
 for (const output of ['', '   ', undefined]) test(`empty provider output ${JSON.stringify(output)} is not success`, async () => {
-  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => ({ output_text: output }));
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, async () => ({ status: 'completed', output_text: output }));
   assert.equal((await r.post(request())).status, 502);
 });
 test('Redis receives atomic EVAL and a bounded timeout', async () => {
@@ -156,4 +156,75 @@ test('real installed SDK serializes Responses API request (HTTP fixture, not liv
   const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined, undefined, SDK);
   const res = await r.post(request()); assert.equal(res.status, 200);
   assert.equal((await res.json()).reply, 'SDK fixture odgovor');
+});
+
+// A provider can include partial text even when it has not completed.
+for (const status of ['incomplete', 'failed', 'in_progress', undefined]) test(`provider ${status} text is not a successful answer`, async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only' }, undefined,
+    async () => ({ status, output_text: 'Nedovršen odgovor' }));
+  const res = await r.post(request());
+  assert.equal(res.status, 502); assert.doesNotMatch(await res.text(), /Nedovršen/);
+});
+test('Redis error names cannot leak secrets into logs', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', UPSTASH_REDIS_REST_URL: 'https://redis.test', UPSTASH_REDIS_REST_TOKEN: 'mock' },
+    async () => { const error = Error('private'); error.name = 'SECRET-do-not-log'; throw error; });
+  assert.equal((await r.post(request())).status, 503);
+  assert.doesNotMatch(r.logs.join(), /SECRET-do-not-log|private|mock-only/);
+});
+test('broken request stream is a sanitized client error', async () => {
+  const r = route();
+  const body = new ReadableStream({ start(controller) { controller.error(Error('SECRET-do-not-log')); } });
+  const req = new Request('https://example.test/api/chat', { method: 'POST', duplex: 'half',
+    headers: { 'content-type': 'application/json' }, body });
+  const res = await r.post(req);
+  assert.equal(res.status, 400); assert.equal(r.calls(), 0);
+  assert.doesNotMatch(r.logs.join() + await res.text(), /SECRET-do-not-log/);
+});
+
+test('slow request body is cancelled within a bounded total deadline', async () => {
+  const r = route(); let cancelled = false;
+  const body = new ReadableStream({ cancel() { cancelled = true; } });
+  const req = new Request('https://example.test/api/chat', { method: 'POST', duplex: 'half',
+    headers: { 'content-type': 'application/json' }, body });
+  const started = Date.now();
+  const res = await r.post(req);
+  assert.equal(res.status, 408); assert.equal(cancelled, true); assert.equal(r.calls(), 0);
+  assert.ok(Date.now() - started < 12000); assert.equal(res.headers.get('cache-control'), 'no-store');
+});
+
+test('shared limiter counters are isolated by project and environment, not deployment', async () => {
+  const keys = [];
+  for (const [project, environment, deployment] of [
+    ['project-a', 'preview', 'one'], ['project-a', 'production', 'one'],
+    ['project-b', 'preview', 'one'], ['project-a', 'preview', 'two'],
+  ]) {
+    const r = route({ OPENAI_API_KEY: 'mock-only', VERCEL_PROJECT_ID: project,
+      VERCEL_ENV: environment, VERCEL_DEPLOYMENT_ID: deployment,
+      UPSTASH_REDIS_REST_URL: 'https://redis.test', UPSTASH_REDIS_REST_TOKEN: 'mock' },
+      async (url, opts) => { keys.push(JSON.parse(opts.body).slice(3, 5)); return Response.json({ result: [1, 1] }); });
+    assert.equal((await r.post(request())).status, 200);
+  }
+  assert.notDeepEqual(keys[0], keys[1]); assert.notDeepEqual(keys[0], keys[2]);
+  assert.deepEqual(keys[0], keys[3]);
+});
+
+test('Marketplace KV REST credentials work without copying secrets', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', VERCEL_ENV: 'production',
+    KV_REST_API_URL: 'https://kv.test', KV_REST_API_TOKEN: 'fixture-kv' }, async (url, opts) => {
+      assert.equal(url, 'https://kv.test'); assert.equal(opts.headers.Authorization, 'Bearer fixture-kv');
+      return Response.json({ result: [1, 1] });
+    });
+  assert.equal((await r.post(request())).status, 200); assert.equal(r.calls(), 1);
+});
+test('partial direct Redis configuration never borrows Marketplace credentials', async () => {
+  const r = route({ OPENAI_API_KEY: 'mock-only', UPSTASH_REDIS_REST_URL: 'https://direct.test',
+    KV_REST_API_URL: 'https://kv.test', KV_REST_API_TOKEN: 'fixture-kv' },
+    async () => { assert.fail('must not send mismatched resource credentials'); });
+  assert.equal((await r.post(request())).status, 503); assert.equal(r.calls(), 0);
+});
+test('partial Marketplace credentials also fail closed', async () => {
+  for (const config of [{ KV_REST_API_URL: 'https://kv.test' }, { KV_REST_API_TOKEN: 'fixture-kv' }]) {
+    const r = route({ OPENAI_API_KEY: 'mock-only', ...config });
+    assert.equal((await r.post(request())).status, 503); assert.equal(r.calls(), 0);
+  }
 });
