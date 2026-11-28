@@ -238,39 +238,101 @@ export async function POST(request) {
       );
     }
 
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey) {
+    const geminiApiKey = process.env.GEMINI_API_KEY;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
+    if (!geminiApiKey && !openaiApiKey) {
       return json(
         { reply: 'AI asistent trenutačno nije dostupan. Možete nam se javiti izravno putem kontakta.' },
         { status: 503 }
       );
     }
 
-    // Keep SDK diagnostics off even if OPENAI_LOG is enabled in the host.
-    // Only our allow-listed error categories below may reach runtime logs.
-    const client = new OpenAI({ apiKey, timeout: 20_000, maxRetries: 0, logLevel: 'off' });
-    const response = await client.responses.create({
-      model: process.env.OPENAI_MODEL || 'gpt-5-mini',
-      instructions:
-        'Ti si EtoMe AI asistent. Odgovaraj na hrvatskom, jasno, kratko i korisno. Pomaži korisnicima oko EtoMe usluga i općih pitanja. Ne izmišljaj cijene, termine ili dostupnost.',
-      input: safeMessages,
-      max_output_tokens: MAX_OUTPUT_TOKENS,
-    });
+    const instructions =
+      'Ti si EtoMe AI asistent. Odgovaraj na hrvatskom, jasno, kratko i korisno. Pomaži korisnicima oko EtoMe usluga i općih pitanja. Ne izmišljaj cijene, termine ili dostupnost.';
+    let outputText;
 
-    // An empty/incomplete provider result is not a successful AI answer.
-    if (response.status !== 'completed' || !response.output_text?.trim()) {
-      const category = response.status !== 'completed' ? 'incomplete_output' : 'empty_output';
-      console.error('EtoMe AI request failed:', JSON.stringify({ category }));
-      return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
+    // Gemini is preferred when configured. It uses its own free-tier quota;
+    // never fall back to OpenAI automatically or incur an unexpected charge.
+    if (geminiApiKey) {
+      const model = process.env.GEMINI_MODEL || 'gemini-4-hydrogen';
+      let geminiResponse;
+      try {
+        geminiResponse = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-goog-api-key': geminiApiKey,
+            },
+            body: JSON.stringify({
+              systemInstruction: { parts: [{ text: instructions }] },
+              contents: safeMessages.map(({ role, content }) => ({
+                role: role === 'assistant' ? 'model' : 'user',
+                parts: [{ text: content }],
+              })),
+              generationConfig: { maxOutputTokens: MAX_OUTPUT_TOKENS },
+            }),
+            cache: 'no-store',
+            signal: AbortSignal.timeout(20_000),
+          }
+        );
+      } catch (error) {
+        const timeout = error?.name === 'TimeoutError' || error?.name === 'AbortError';
+        const safeError = new Error('Gemini provider connection failed');
+        safeError.geminiTimeout = timeout;
+        safeError.geminiConnection = !timeout;
+        throw safeError;
+      }
+
+      let payload;
+      try {
+        payload = await geminiResponse.json();
+      } catch {
+        payload = null;
+      }
+      if (!geminiResponse.ok) {
+        const safeError = new Error('Gemini provider request failed');
+        safeError.status = geminiResponse.status;
+        throw safeError;
+      }
+
+      const candidate = payload?.candidates?.[0];
+      outputText = Array.isArray(candidate?.content?.parts)
+        ? candidate.content.parts.map((part) => typeof part?.text === 'string' ? part.text : '').join('').trim()
+        : '';
+      // Only a normally completed, non-empty model response counts as success.
+      if (candidate?.finishReason !== 'STOP' || !outputText) {
+        console.error('EtoMe AI request failed:', JSON.stringify({
+          category: outputText ? 'incomplete_output' : 'empty_output',
+        }));
+        return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
+      }
+    } else {
+      // Existing OpenAI path remains available as an explicit fallback when
+      // GEMINI_API_KEY is absent; no automatic provider switching on errors.
+      const client = new OpenAI({ apiKey: openaiApiKey, timeout: 20_000, maxRetries: 0, logLevel: 'off' });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+        instructions,
+        input: safeMessages,
+        max_output_tokens: MAX_OUTPUT_TOKENS,
+      });
+      if (response.status !== 'completed' || !response.output_text?.trim()) {
+        const category = response.status !== 'completed' ? 'incomplete_output' : 'empty_output';
+        console.error('EtoMe AI request failed:', JSON.stringify({ category }));
+        return json({ reply: 'AI nije uspio dovršiti odgovor. Pokušaj ponovno.' }, { status: 502 });
+      }
+      outputText = response.output_text;
     }
-    return json({ reply: response.output_text });
+    return json({ reply: outputText });
   } catch (error) {
     // SDK errors may all be named Error. Log only allow-listed diagnostics,
     // never provider messages, request bodies, headers or credential values.
     const upstreamStatus = Number.isInteger(error?.status) && error.status >= 400 && error.status <= 599
       ? error.status : undefined;
-    const timeout = error instanceof OpenAI.APIConnectionTimeoutError;
-    const connection = error instanceof OpenAI.APIConnectionError;
+    const timeout = error instanceof OpenAI.APIConnectionTimeoutError || error?.geminiTimeout === true;
+    const connection = error instanceof OpenAI.APIConnectionError || error?.geminiConnection === true;
     const category = timeout ? 'timeout'
       : upstreamStatus === 401 || upstreamStatus === 403 ? 'provider_auth'
       : upstreamStatus === 429 ? 'provider_quota_or_rate_limit'
