@@ -131,10 +131,12 @@ Ako operater nema pristup tajni i mreži providera, provjera ostaje blokirana.
   inferencije. Nakon vidljivosti slijedi odvojeni stvarni hrvatski chat test;
   tek taj prolaz dopušta izbor modela. Alat ne tvrdi da je njegov popis svih
   mogućih modela iscrpan.
-- `verify:redis`: piše samo nasumične `etome:readiness:preview:<uuid>:*` ključeve
+- `verify:redis`: najprije traži `PING` → `PONG` te `SET`/`GET`/`DEL` round-trip
+  s provjerom da obrisani probni ključ više ne postoji. Probni ključ ima TTL 60 s
+  i ciljano čišćenje i kod neuspjeha. Zatim piše samo nasumične `etome:readiness:preview:<uuid>:*` ključeve
   u odobrenoj Preview bazi. Koristi točan Lua iz routea: devet paralelnih poziva,
   jedinstveni brojači 1–9, TTL 60/86400 i izolirana dnevna granica 80→81, pa DEL
-  samo tih dvaju ključeva. TTL ograničava ostatke pri prekidu veze. Troši Redis
+  samo tih dvaju limiter ključeva. TTL ograničava ostatke pri prekidu veze. Troši Redis
   naredbe; ne pokretati bez odobrenog resursa. Ne poziva AI, ne uređuje stvarne
   IP brojače, ne koristi FLUSHDB/KEYS i ne dokazuje deployed HTTP status, dvije
   Vercel instance, protek stvarnog dana ili failover. Te release provjere iz

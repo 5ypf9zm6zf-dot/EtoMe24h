@@ -56,6 +56,17 @@ async function checkRedis(env, fetchImpl = fetch) {
     if (body.error || !Object.hasOwn(body, 'result')) throw Error('redis_command_failed');
     return body.result;
   }
+  // Prove the basic REST command path before testing Lua. Separate key, bounded
+  // lifetime and targeted cleanup even on a wrong GET result. No user counters.
+  const probeKey = `${prefix}:probe`;
+  assert.equal(await command(['PING']), 'PONG');
+  try {
+    assert.equal(await command(['SET', probeKey, prefix, 'EX', '60']), 'OK');
+    assert.equal(await command(['GET', probeKey]), prefix);
+  } finally {
+    assert.equal(await command(['DEL', probeKey]), 1);
+  }
+  assert.equal(await command(['GET', probeKey]), null);
   try {
     // Wait for every in-flight write before cleanup, even if one fails.
     const settled = await Promise.allSettled(Array.from({ length: 9 }, () => command(['EVAL', script, '2', ...keys, '60', '86400'])));
@@ -73,7 +84,7 @@ async function checkRedis(env, fetchImpl = fetch) {
     // Seed only our disposable day key to check 80 -> 81 without AI calls.
     assert.equal(await command(['SET', keys[1], '80', 'EX', '86400']), 'OK');
     assert.deepEqual(await command(['EVAL', script, '2', ...keys, '60', '86400']), [10, 81]);
-    return { atomicCounters: true, expiryPresent: true, dayThreshold: true, deployedRouteVerified: false };
+    return { ping: true, setGetDelete: true, atomicCounters: true, expiryPresent: true, dayThreshold: true, deployedRouteVerified: false };
   } finally {
     // TTLs also bound lifetime if connection loss prevents this cleanup.
     assert.equal(await command(['DEL', ...keys]), 2);
