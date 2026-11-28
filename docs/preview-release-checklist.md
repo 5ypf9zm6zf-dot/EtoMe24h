@@ -112,3 +112,64 @@ modala na desktopu i mobilnom prikazu, originalne slike bez izmjena, WWW canonic
 sitemap i robots, stvaran uspješan AI odgovor, stvaran zajednički Redis limiter,
 negativne deployed HTTP testove i čiste runtime logove. Lokalni prolaz nije dokaz
 ponašanja Vercel edge/proxy sloja. Ne slabliti zaštitu radi testa.
+
+## 5. Operaterska provjera nakon autorizacije resursa
+
+Dodani su `npm run verify:models` i `npm run verify:redis`. To su alati za
+operatera/agenta, ne dodatni tehnički zadaci vlasnika. Nisu build/deploy hookovi,
+ne otvaraju javni dijagnostički endpoint i ne izvršavaju se automatski.
+Oba odbijaju rad ako `VERCEL_ENV` nije točno `preview`. Koristiti samo ovlaštene
+Preview tajne u okruženju procesa; ne slati ih u chat, argumente naredbe ili Git.
+Spremljeni Vercel Secret nije moguće dohvatiti preko env pulla; `[SENSITIVE]`
+nije ključ. Ne mijenjati ili zamjenjivati postojeći ključ samo radi ovog alata.
+Ako operater nema pristup tajni i mreži providera, provjera ostaje blokirana.
+
+- `verify:models`: čita stvarni OpenAI katalog računa koristeći instalirani SDK,
+  bez generiranja teksta, automatske promjene modela ili fallbacka. Ispisuje samo
+  poznate cjenovne kandidate i vidljivost konfiguriranog modela, ne puni katalog
+  ili detalje računa. Vidljivost nije dokaz raspoloživog kredita ni uspješne
+  inferencije. Nakon vidljivosti slijedi odvojeni stvarni hrvatski chat test;
+  tek taj prolaz dopušta izbor modela. Alat ne tvrdi da je njegov popis svih
+  mogućih modela iscrpan.
+- `verify:redis`: piše samo nasumične `etome:readiness:preview:<uuid>:*` ključeve
+  u odobrenoj Preview bazi. Koristi točan Lua iz routea: devet paralelnih poziva,
+  jedinstveni brojači 1–9, TTL 60/86400 i izolirana dnevna granica 80→81, pa DEL
+  samo tih dvaju ključeva. TTL ograničava ostatke pri prekidu veze. Troši Redis
+  naredbe; ne pokretati bez odobrenog resursa. Ne poziva AI, ne uređuje stvarne
+  IP brojače, ne koristi FLUSHDB/KEYS i ne dokazuje deployed HTTP status, dvije
+  Vercel instance, protek stvarnog dana ili failover. Te release provjere iz
+  odjeljka 3 ostaju odvojene. Ne koristiti produkcijsku bazu.
+- Neispravni odgovori, djelomični parovi, nesigurni URL-ovi i greške čišćenja
+  završavaju neuspjehom; CLI ne ispisuje sirove provider/Redis greške ili tajne.
+- `npm test` uključuje fixture testove ovih alata. Prolaz fixture testova nije
+  dokaz dostupnosti živog modela ili stvarne Redis baze.
+
+### Modeli i cijene (službena provjera 2026-11-28)
+
+`gpt-6-luna` postoji u službenom katalogu i podržava postojeći Responses API.
+Standardna cijena za kratki kontekst: $0.10 ulaz / $0.50 izlaz na milijun tokena;
+cache read $0.01. `reasoning.effort=none` postoji, ali nije automatski dodan
+postojećim modelima. Zadani reasoning troši isti ograničeni izlazni budžet pa je
+stvaran dovršen hrvatski odgovor s limitom 400 tokena obvezan prije odabira.
+`gpt-5-nano` ima nižu objavljenu cijenu $0.05 / $0.40, ali je Deprecated;
+niža cijena ne dokazuje prikladnost hrvatskog odgovora ili pristup računa.
+`gpt-4.1-nano` je Shut down i nije kandidat.
+Nijedan novi model nije aktiviran bez provjere računa. Postojeći zadani
+`gpt-5-mini` u ovom nastavku nije promijenjen; i on zahtijeva odluku prije releasea.
+Nema automatske migracije, kupnje kredita ili promjene Production varijabli.
+
+Izvori:
+- https://developers.openai.com/api/docs/models/gpt-6-luna
+- https://developers.openai.com/api/docs/models/gpt-5-nano
+- https://developers.openai.com/api/docs/models/gpt-4.1-nano
+- https://developers.openai.com/api/docs/pricing
+
+### Besplatna Redis priprema, bez prihvaćanja uvjeta
+
+CLI katalog nudi plan `free`; to nije dokaz da je besplatni resurs već stvoren
+ili da je račun podoban. Planirati `autoUpgrade=false`, `eviction=false`,
+`prodPack=false`; nema automatskog prelaska na `paid` ako Free nije dostupan.
+Prije bilo kakvog stvaranja potreban je prihvat uvjeta vlasnika, a prije veze
+odobrenje ciljane Preview promjene. Instalacija i baza nisu isto. Agent zatim
+može izvršiti povezivanje i provjere; vlasnik ne treba ručno kopirati Redis tajne
+kad ovlaštena Marketplace integracija može postaviti cijeli par.
